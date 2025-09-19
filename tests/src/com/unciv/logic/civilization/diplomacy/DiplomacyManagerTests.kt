@@ -17,23 +17,18 @@ import org.junit.runner.RunWith
 @RunWith(GdxTestRunner::class)
 class DiplomacyManagerTests {
 
-    private val testGame = TestGame()
+    private val testGame = TestGame().apply { makeHexagonalMap(4) }
 
-    fun addCiv(cityStateType: String? = null, defaultUnitTile: Tile? = null) = testGame.addCiv(cityStateType = cityStateType).apply { testGame.addUnit("Warrior", this@apply, defaultUnitTile) }
+    fun addCiv(cityStateType: String? = null, defaultUnitTile: Tile) = testGame.addCiv(cityStateType = cityStateType).apply { testGame.addUnit("Warrior", this@apply, defaultUnitTile) }
     // We need to add units so they are not considered defeated, since defeated civs are filtered out of knowncivs
-    private val a = addCiv()
-    private val b = addCiv()
-    private val c = addCiv()
-    private val d = addCiv()
+    private val a = addCiv(defaultUnitTile = testGame.getTile( 2, 2))
+    private val b = addCiv(defaultUnitTile = testGame.getTile( 2,-2))
+    private val c = addCiv(defaultUnitTile = testGame.getTile(-2, 2))
+    private val d = addCiv(defaultUnitTile = testGame.getTile(-2,-2))
 
 
     private fun meet(civilization: Civilization, otherCivilization: Civilization) {
         civilization.diplomacyFunctions.makeCivilizationsMeet(otherCivilization)
-    }
-
-    @Before
-    fun setUp() {
-        testGame.makeHexagonalMap(4)
     }
 
     @Test
@@ -114,7 +109,7 @@ class DiplomacyManagerTests {
         meet(b, d)
         meet(c, d)
 
-        testGame.gameInfo.currentPlayerCiv = addCiv() // otherwise test crashes when puppetying city
+        testGame.gameInfo.currentPlayerCiv = addCiv(defaultUnitTile = testGame.getTile( 4, 0)) // otherwise test crashes when puppetying city
         testGame.gameInfo.currentPlayer = testGame.gameInfo.currentPlayerCiv.civName
 
         val bCity = testGame.addCity(b, testGame.getTile(Vector2.Zero), initialPopulation = 2)
@@ -143,7 +138,7 @@ class DiplomacyManagerTests {
         meet(a, c)
         meet(c, b)
 
-        testGame.gameInfo.currentPlayerCiv = addCiv() // otherwise test crashes when puppetying city
+        testGame.gameInfo.currentPlayerCiv = addCiv(defaultUnitTile = testGame.getTile( 4, 0)) // otherwise test crashes when puppetying city
         testGame.gameInfo.currentPlayer = testGame.gameInfo.currentPlayerCiv.civName
 
         val bCity = testGame.addCity(b, testGame.getTile(Vector2.Zero), initialPopulation = 2)
@@ -165,7 +160,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should make city state friend when over threshold`() {
         // given
-        val cityState = addCiv(cityStateType = "Militaristic")
+        val cityState = addCiv(cityStateType = "Militaristic", defaultUnitTile = testGame.getTile( 4, 0))
         meet(a, cityState)
 
         // when
@@ -178,7 +173,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should make city state allied when over threshold and no other civ are allied`() {
         // given
-        val cityState = addCiv(cityStateType = "Militaristic")
+        val cityState = addCiv(cityStateType = "Militaristic", defaultUnitTile = testGame.getTile( 4, 0))
         meet(a, cityState)
 
         // when
@@ -191,7 +186,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should not make city state allied when over threshold and other civ has more influence`() {
         // given
-        val cityState = addCiv(cityStateType = "Militaristic")
+        val cityState = addCiv(cityStateType = "Militaristic", defaultUnitTile = testGame.getTile( 4, 0))
         meet(a, cityState)
         meet(b, cityState)
         cityState.getDiplomacyManager(a)!!.addInfluence(70f)
@@ -207,7 +202,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should make city state allied when over threshold and most influencial`() {
         // given
-        val cityState = addCiv(cityStateType = "Militaristic")
+        val cityState = addCiv(cityStateType = "Militaristic", defaultUnitTile = testGame.getTile( 4, 0))
         meet(a, cityState)
         meet(b, cityState)
         cityState.getDiplomacyManager(a)!!.addInfluence(61f)
@@ -223,7 +218,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should make city state angry when at war regardless of previous influence`() {
         // given
-        val cityState = addCiv(cityStateType = "Militaristic")
+        val cityState = addCiv(cityStateType = "Militaristic", defaultUnitTile = testGame.getTile( 4, 0))
         meet(a, cityState)
         cityState.getDiplomacyManager(a)!!.addInfluence(61f)
 
@@ -256,7 +251,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should degrade influence in city state on next turn`() {
         // given
-        val cityState = addCiv(cityStateType = "Mercantile")
+        val cityState = addCiv(cityStateType = "Mercantile", defaultUnitTile = testGame.getTile( 4, 0))
         cityState.cityStatePersonality = CityStatePersonality.Neutral
         meet(a, cityState)
 
@@ -272,7 +267,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should degrade influence in hostile city state on next turn`() {
         // given
-        val cityState = addCiv(cityStateType = "Militaristic")
+        val cityState = addCiv(cityStateType = "Militaristic", defaultUnitTile = testGame.getTile( 4, 0))
         cityState.cityStatePersonality = CityStatePersonality.Hostile
         meet(a, cityState)
 
@@ -288,7 +283,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should degrade influence in city state when sharing religion on next turn`() {
         // given
-        val cityState = addCiv(cityStateType = "Mercantile")
+        val cityState = addCiv(cityStateType = "Mercantile", defaultUnitTile = testGame.getTile( 4, 0))
         cityState.cityStatePersonality = CityStatePersonality.Neutral
 
         meet(a, cityState)
@@ -314,7 +309,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should increase influence in city state when under resting points`() {
         // given
-        val cityState = addCiv(cityStateType = "Mercantile")
+        val cityState = addCiv(cityStateType = "Mercantile", defaultUnitTile = testGame.getTile( 4, 0))
         cityState.cityStatePersonality = CityStatePersonality.Neutral
         meet(a, cityState)
 
@@ -330,7 +325,7 @@ class DiplomacyManagerTests {
     @Test
     fun `should increase influence in city state when under resting points and sharing religion`() {
         // given
-        val cityState = addCiv(cityStateType = "Mercantile")
+        val cityState = addCiv(cityStateType = "Mercantile", defaultUnitTile = testGame.getTile( 4, 0))
         cityState.cityStatePersonality = CityStatePersonality.Neutral
         meet(a, cityState)
 

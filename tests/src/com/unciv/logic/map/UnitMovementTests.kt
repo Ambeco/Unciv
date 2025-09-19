@@ -40,7 +40,7 @@ class UnitMovementTests {
 
     @Test
     fun canPassThroughPassableTerrains() {
-        val unit = testGame.addUnit("Warrior", civInfo, null)
+        val unit = testGame.addUnit("Warrior", civInfo, testGame.getTile(0,0))
         for (terrain in testGame.ruleset.terrains.values) {
             tile.baseTerrain = terrain.name
             tile.setTerrainFeatures(listOf())
@@ -196,7 +196,7 @@ class UnitMovementTests {
         val city = testGame.addCity(otherCiv, testGame.tileMap[1,1])
         tile.setOwningCity(city)
 
-        val unit = testGame.addUnit("Warrior", civInfo, null)
+        val unit = testGame.addUnit("Warrior", civInfo, testGame.getTile(-1,1))
 
         Assert.assertFalse("Unit must not enter other civ tile", unit.movement.canPassThrough(tile))
 

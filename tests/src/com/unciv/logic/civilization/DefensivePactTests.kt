@@ -10,13 +10,13 @@ import org.junit.runner.RunWith
 
 @RunWith(GdxTestRunner::class)
 class DefensivePactTests {
-    private val testGame = TestGame()
+    private val testGame = TestGame().apply { makeHexagonalMap(4) }
 
-    fun addCiv() = testGame.addCiv().apply { testGame.addUnit("Warrior", this@apply, null) }
+    fun addCiv(x: Int, y: Int) = testGame.addCiv().apply { testGame.addUnit("Warrior", this@apply, testGame.getTile(x, y)) }
 
-    private val a = addCiv()
-    private val b = addCiv()
-    private val c = addCiv()
+    private val a = addCiv( 2,  2)
+    private val b = addCiv( 2, -2)
+    private val c = addCiv(-2,  2)
 
 
 

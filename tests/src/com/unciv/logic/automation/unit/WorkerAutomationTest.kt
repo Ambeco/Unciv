@@ -288,6 +288,8 @@ internal class WorkerAutomationTest {
             city.cityConstructions.addBuilding("Stock Exchange")
         }
         val worker = testGame.addUnit("Worker", civInfo, city1.getCenterTile())
+        worker.instanceName = "RoadBuilder"
+        worker.currentTile.toString()
         for(i in 0..24) {
             worker.currentMovement = 2f
             for (unit in civInfo.units.getCivUnits()) {
