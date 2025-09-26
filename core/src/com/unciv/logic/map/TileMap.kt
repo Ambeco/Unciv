@@ -161,8 +161,13 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
             : this (HexMath.getNumberOfTilesInHexagon(radius)) {
         startingLocations.clear()
         val firstAvailableLandTerrain = MapLandmassGenerator.getInitializationTerrain(ruleset, TerrainType.Land)
+        var zeroBasedIndexCounter = 0
         for (vector in HexMath.getVectorsInDistance(Vector2.Zero, radius, worldWrap))
-            tileList.add(Tile().apply { position = vector; baseTerrain = firstAvailableLandTerrain })
+            tileList.add(Tile().apply { 
+                zeroBasedIndex = zeroBasedIndexCounter++
+                position = vector
+                baseTerrain = firstAvailableLandTerrain 
+            })
         setTransients(ruleset)
     }
 
@@ -175,11 +180,13 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
         // world-wrap maps must always have an even width, so round down
         val wrapAdjustedWidth = if (worldWrap && width % 2 != 0) width -1 else width
 
+        var zeroBasedIndexCounter = 0
         // Even widths will have coordinates ranging -x..(x-1), not -x..x, which is always an odd-sized range
         // e.g. w=4 -> -2..1, w=5 -> -2..2, w=6 -> -3..2, w=7 -> -3..3
         for (column in -wrapAdjustedWidth / 2 .. (wrapAdjustedWidth-1) / 2)
             for (row in -height / 2 .. (height-1) / 2)
                 tileList.add(Tile().apply {
+                    zeroBasedIndex = zeroBasedIndexCounter++
                     position = HexMath.getTileCoordsFromColumnRow(column, row)
                     baseTerrain = firstAvailableLandTerrain
                 })
@@ -527,6 +534,7 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
         for (tileInfo in values) {
             tileMatrix[tileInfo.position.x.toInt() - leftX][tileInfo.position.y.toInt() - bottomY] = tileInfo
         }
+        var zeroBasedIndexCounter = 0
         for (tileInfo in values) {
             // Do ***NOT*** call Tile.setTerrainTransients before the tileMatrix is complete -
             // setting transients might trigger the neighbors lazy (e.g. thanks to convertHillToTerrainFeature).
@@ -534,7 +542,7 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
             // looks at tileMatrix. Thus filling Tiles into tileMatrix and setting their
             // transients in the same loop will leave incomplete cached `neighbors`.
             tileInfo.tileMap = this
-            tileInfo.zeroBasedIndex = HexMath.getZeroBasedIndex(tileInfo.position.x.toInt(), tileInfo.position.y.toInt())
+            tileInfo.zeroBasedIndex = zeroBasedIndexCounter++
             tileInfo.ruleset = this.ruleset!!
             tileInfo.setTerrainTransients()
             tileInfo.setUnitTransients(setUnitCivTransients)
