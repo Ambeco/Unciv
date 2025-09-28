@@ -6,7 +6,6 @@ import com.unciv.logic.map.MapPathing.roadPreferredMovementCost
 import com.unciv.logic.map.mapunit.MapUnit
 import com.unciv.logic.map.mapunit.movement.MovementCost
 import com.unciv.logic.map.mapunit.movement.PathsToTilesWithinTurn
-import com.unciv.logic.map.mapunit.movement.UnitMovement
 import com.unciv.logic.map.mapunit.movement.UnitMovement.ParentTileAndTotalMovement
 import com.unciv.logic.map.tile.Tile
 import com.unciv.utils.forEachSetBit
@@ -85,7 +84,8 @@ class PathingMap(
      * complexity.
      */
     @Cache
-    private val tilesReached = Array<ParentTileAndTotalMovement?>(UncivGame.Current.gameInfo!!.tileMap.tileList.size) { null }
+    private val tilesReached =
+        Array<ParentTileAndTotalMovement?>(UncivGame.Current.gameInfo!!.tileMap.tileList.size) { null }
 
     @Cache
     private lateinit var tilesSameTurn: PathsToTilesWithinTurn
@@ -125,7 +125,8 @@ class PathingMap(
             stepUntilDestination(destination, maxTurns)
         }
         // Now tilesReached has the shortest route, so we extract it into a list and return 
-        var currentNode: ParentTileAndTotalMovement = tilesReached[destination.zeroBasedIndex] ?: return null
+        var currentNode: ParentTileAndTotalMovement =
+            tilesReached[destination.zeroBasedIndex] ?: return null
         val result = mutableListOf(currentNode.tile)
         while (true) {
             val parent = tilesReached[currentNode.parentTile.zeroBasedIndex]!!
@@ -143,7 +144,7 @@ class PathingMap(
      * Does not consider if tiles can actually be entered, use canMoveTo for that.
      * If a tile can be reached within the turn, but it cannot be passed through, the total distance to it is set to unitMovement
      */
-    fun getMovementToTilesAtPosition(): PathsToTilesWithinTurn  {
+    fun getMovementToTilesAtPosition(): PathsToTilesWithinTurn {
         if (startingPoint != lazyStartingPoint() || currentMovement != lazyCurrentMovement()) {
             clear()
         }
@@ -154,7 +155,7 @@ class PathingMap(
         }
         val newTilesSameTurn = PathsToTilesWithinTurn()
         tilesChecked.forEachSetBit {
-            if (tilesReached[it]?.turns == 1)
+            if (tilesReached[it]?.turns == 0)
                 newTilesSameTurn.put(tilesReached[it]!!.tile, tilesReached[it]!!)
         }
         tilesSameTurn = newTilesSameTurn
@@ -210,6 +211,17 @@ class PathingMap(
     }
 
     companion object {
+        @Readonly
+        private fun isTileCanAttackThrough(civInfo: Civilization, tile: Tile, targetCiv: Civilization): Boolean {
+            val owner = tile.getOwner()
+            return !tile.isImpassible()
+                && (owner == targetCiv || owner == null || civInfo.diplomacyFunctions.canPassThroughTiles(owner))
+        }
+
+        @Readonly
+        private fun isLandTileCanAttackThrough(civInfo: Civilization, tile: Tile, targetCiv: Civilization): Boolean {
+            return tile.isLand && isTileCanAttackThrough(civInfo, tile, targetCiv)
+        }
 
         @Readonly
         fun createUnitPathingMap(unit: MapUnit): PathingMap {
@@ -240,11 +252,37 @@ class PathingMap(
         }
 
         @Readonly
+        fun createLandAttackPathingMap(civ: Civilization, startingPoint: Tile, targetCiv: Civilization): PathingMap {
+            return PathingMap(
+                { startingPoint },
+                { DEFAULT_TIMEOUT.toFloat() },
+                DEFAULT_TIMEOUT,
+                { isLandTileCanAttackThrough(civ, it, targetCiv) },
+                { from, to -> roadPreferredMovementCost(civ, from, to) },
+                { to -> 0 },
+                { it.hasConnection(civ) }
+            )
+        }
+
+        @Readonly
+        fun createAmphibiousAttackPathingMap(civ: Civilization, startingPoint: Tile, targetCiv: Civilization): PathingMap {
+            return PathingMap(
+                { startingPoint },
+                { DEFAULT_TIMEOUT.toFloat() },
+                DEFAULT_TIMEOUT,
+                { isTileCanAttackThrough(civ, it, targetCiv) },
+                { from, to -> roadPreferredMovementCost(civ, from, to) },
+                { to -> 0 },
+                { it.hasConnection(civ) }
+            )
+        }
+
+        @Readonly
         fun createRoadPathingMap(civ: Civilization, startingPoint: Tile): PathingMap {
             return PathingMap(
                 { startingPoint },
                 { DEFAULT_TIMEOUT.toFloat() },
-                DEFAULT_TIMEOUT ,
+                DEFAULT_TIMEOUT,
                 { MapPathing.isValidRoadPathTile(civ, it) },
                 { from, to -> roadPreferredMovementCost(civ, from, to) },
                 { to -> 0 },
@@ -308,22 +346,26 @@ internal class AStarPathfinder(
     // lower values are higher priority
     @Readonly
     private fun asPrioritizedNode(node: ParentTileAndTotalMovement): PrioritizedNode {
-        val movementSoFar = (node.turns - 1) * fullMovement + node.movementUsed
-        val minRemainingTiles = destination?.let {node.tile.aerialDistanceTo(it) } ?: 0
+        val movementSoFar = node.turns * fullMovement + node.movementUsed
+        val minRemainingTiles = destination?.let { node.tile.aerialDistanceTo(it) } ?: 0
         val minRemainingCost = if (hasConnection(node.tile))
             minRemainingTiles * FASTEST_ROAD_COST
         else
-            (minRemainingTiles - 1) * (FASTEST_NON_ROAD_COST) + FASTEST_NON_ROAD_COST
+            (minRemainingTiles - 1) * (FASTEST_ROAD_COST) + FASTEST_NON_ROAD_COST
         return PrioritizedNode(movementSoFar + minRemainingCost, node)
     }
 
     @Pure
-    private fun createNextNode(currentNode: ParentTileAndTotalMovement, neighborTile: Tile): ParentTileAndTotalMovement {
+    private fun createNextNode(
+        currentNode: ParentTileAndTotalMovement,
+        neighborTile: Tile
+    ): ParentTileAndTotalMovement {
         val cost = cost(currentNode.tile, neighborTile)
+        val newUsedMovement = currentNode.movementUsed + cost
         // Note that if we can't move there this turn, then we unconditionally move there next turn.
         // In some cases, this can use more than the remaining movement, but that's correct behavior.
         // https://yairm210.medium.com/multi-turn-pathfinding-7136bd0bdaf0
-        if (currentNode.movementUsed + cost <= fullMovement || currentNode.movementUsed == 0f)
+        if (newUsedMovement <= fullMovement || currentNode.movementUsed == 0f)
             return ParentTileAndTotalMovement(
                 neighborTile, currentNode.tile, currentNode.turns,
                 currentNode.movementUsed + cost

@@ -78,6 +78,9 @@ class AdvancedTab(
         addEasterEggsCheckBox()
 
         addEnlargeNotificationsCheckBox()
+
+        addAStarPathingCheckBox()
+
         addSeparator()
 
         addSetUserId()
@@ -400,5 +403,9 @@ class AdvancedTab(
 
     private fun addEnlargeNotificationsCheckBox() {
         optionsPopup.addCheckbox(this, "Enlarge selected notifications", settings.enlargeSelectedNotification) { settings.enlargeSelectedNotification = it }
+    }
+
+    private fun addAStarPathingCheckBox() {
+        optionsPopup.addCheckbox(this, "Experimental AStar Pathing", settings.aStarPathing) { settings.aStarPathing = it }
     }
 }
