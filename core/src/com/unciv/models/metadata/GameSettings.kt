@@ -31,6 +31,7 @@ class GameSettings {
     var mapAutoScroll: Boolean = false
     /** How fast the map pans using keyboard or with [mapAutoScroll] and mouse */
     var mapPanningSpeed: Float = 6f
+    var aStarPathing: Boolean = false
 
     var showWorkedTiles: Boolean = false
     var showResourcesAndImprovements: Boolean = true
