@@ -235,7 +235,7 @@ object UnitAutomation {
                 }
 
         val reachableTilesMaxWalkingDistance = reachableTiles
-                .filter { it.value.totalMovement == unit.currentMovement
+                .filter { it.value.movementUsed == unit.currentMovement
                         && unit.getDamageFromTerrain(it.key) <= 0 // Don't end turn on damaging terrain for no good reason
                         && (!stayInTerritory || it.key.getOwner() == unit.civ) }
         if (reachableTilesMaxWalkingDistance.any()) unit.movement.moveToTile(reachableTilesMaxWalkingDistance.toList().random().first)
@@ -469,7 +469,7 @@ object UnitAutomation {
         if (unit.isCivilian()) return false
         val unitDistanceToTiles = unit.movement.getDistanceToTiles()
         val tilesThatCanWalkToAndThenPillage = unitDistanceToTiles
-            .filter { it.value.totalMovement < unit.currentMovement }.keys
+            .filter { it.value.movementUsed < unit.currentMovement }.keys
             .filter { unit.movement.canMoveTo(it) && UnitActionsPillage.canPillage(unit, it)
                     && (it.canPillageTileImprovement()
                     || (!onlyPillageToHeal && it.canPillageRoad() && it.getRoadOwner() != null && unit.civ.isAtWarWith(it.getRoadOwner()!!))) }
