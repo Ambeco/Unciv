@@ -4,9 +4,11 @@ package com.unciv.logic.map.mapunit.movement
 
 import com.badlogic.gdx.math.Vector2
 import com.unciv.Constants
+import com.unciv.UncivGame
 import com.unciv.logic.civilization.diplomacy.RelationshipLevel
 import com.unciv.logic.map.BFS
 import com.unciv.logic.map.HexMath
+import com.unciv.logic.map.PathingMap
 import com.unciv.logic.map.mapunit.MapUnit
 import com.unciv.logic.map.tile.Tile
 import com.unciv.models.UnitActionType
@@ -14,14 +16,37 @@ import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.ui.components.UnitMovementMemoryType
 import com.unciv.utils.getOrPut
 import yairm210.purity.annotations.Cache
+import yairm210.purity.annotations.InternalState
 import yairm210.purity.annotations.LocalState
 import yairm210.purity.annotations.Readonly
 import java.util.BitSet
 
-
+/**
+ * Handles all movement-related logic for a [MapUnit]
+ *
+ * getMovementToTilesAtPosition does a breadth-first search outwards from a given position,
+ * calculating the movement cost to each tile within the units remaining movement, with no specific
+ * target destination. In some cases, this involves a small amount of backtracking. This creates
+ * a PathsToTilesWithinTurn - a hashmap of tiles to fastest-paths.
+ *
+ * getShortestPath is the multi-turn pathing logic.  This calls getMovementToTilesAtPosition, and
+ * then for each edge tile, starting with the closest to the destination, it calls getMovementToTilesAtPosition
+ * again, until it finds a path to the destination.  This shares caching with getMovementToTilesAtPosition
+ * so that it doesn't recalculate the same tiles multiple times. This doesn't find optimal paths,
+ * but it finds reasonably good paths.
+ *
+ * teleportToClosestMoveableTile has something akin to pathing logic as well, iterating over nearby
+ * tiles, and calling getPathBetweenTiles to see if the unit can reach them.
+ *
+ * getAerialPathsToCities is the aerial equivalent of getMovementToTilesAtPosition.
+ *
+ * getPathBetweenTiles uses {@link com.unciv.logic.map.BFS} for single-turn pathing to a target.
+ */
+@InternalState
 class UnitMovement(val unit: MapUnit) {
 
     @Cache private val pathfindingCache = PathfindingCache(unit)
+    @Cache private val pathingMap by lazy { PathingMap.createUnitPathingMap(unit) }
 
     class ParentTileAndTotalMovement(val tile: Tile, val parentTile: Tile, val turns: Int, val movementUsed: Float)
 
@@ -42,6 +67,9 @@ class UnitMovement(val unit: MapUnit) {
         movementCostCache: HashMap<Int, Float> = HashMap(),
         includeOtherEscortUnit: Boolean = true
     ): PathsToTilesWithinTurn {
+        if (UncivGame.Current.settings.aStarPathing) {
+            return pathingMap.getMovementToTilesAtPosition()
+        }
         @LocalState val distanceToTiles = PathsToTilesWithinTurn()
 
         val currentUnitTile = unit.currentTile
@@ -112,9 +140,15 @@ class UnitMovement(val unit: MapUnit) {
     @Readonly
     fun getShortestPath(destination: Tile, avoidDamagingTerrain: Boolean = false): List<Tile> {
         if (unit.cache.cannotMove) return listOf()
+        if (UncivGame.Current.settings.aStarPathing) {
+            return pathingMap.getShortestPath(destination) ?: listOf()
+        }
 
         // First try and find a path without damaging terrain
-        if (!avoidDamagingTerrain && unit.civ.passThroughImpassableUnlocked && unit.baseUnit.isLandUnit) {
+        if (!avoidDamagingTerrain && 
+                !UncivGame.Current.settings.aStarPathing &&
+                unit.civ.passThroughImpassableUnlocked && 
+                unit.baseUnit.isLandUnit) {
             val damageFreePath = getShortestPath(destination, true)
             if (damageFreePath.isNotEmpty()) return damageFreePath
         }
@@ -381,13 +415,25 @@ class UnitMovement(val unit: MapUnit) {
         if (canPassThrough(unit.getTile())
             && !isCityCenterCannotEnter(unit.getTile()))
             return // This unit can stay here - e.g. it has "May enter foreign tiles without open borders"
+        val pathing = PathingMap(
+            { unit.getTile() },
+            { 5f },
+            1,
+            { canPassThrough(it) },
+            { _, _ -> 1f },
+            { 0 },
+            { true })
         while (allowedTile == null && distance < 5) {
             distance++
             allowedTile = unit.getTile().getTilesAtDistance(distance)
                 // can the unit be placed safely there? Is tile either unowned or friendly?
                 .filter { canMoveTo(it) && it.getOwner()?.isAtWarWith(unit.civ) != true }
                 // out of those where it can be placed, can it reach them in any meaningful way?
-                .firstOrNull { getPathBetweenTiles(unit.currentTile, it).contains(it) }
+                .firstOrNull {
+                    if (UncivGame.Current.settings.aStarPathing)
+                        pathing.getShortestPath(it) != null
+                    else getPathBetweenTiles(unit.currentTile, it).contains(it)
+                }
         }
 
         // No tile within 4 spaces? move him to a city.
@@ -811,7 +857,10 @@ class UnitMovement(val unit: MapUnit) {
         return bfs.getReachedTiles()
     }
 
-    fun clearPathfindingCache() = pathfindingCache.clear()
+    fun clearPathfindingCache() {
+        pathfindingCache.clear()
+        pathingMap.clear()
+    }
 
 }
 
