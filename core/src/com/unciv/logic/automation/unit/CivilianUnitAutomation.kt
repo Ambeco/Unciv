@@ -43,7 +43,7 @@ object CivilianUnitAutomation {
             val tilesCanMoveTo = unit.movement.getDistanceToTiles()
                 .filter { unit.movement.canMoveTo(it.key) }
             if (tilesCanMoveTo.isNotEmpty())
-                unit.movement.moveToTile(tilesCanMoveTo.minByOrNull { it.value.totalMovement }!!.key)
+                unit.movement.moveToTile(tilesCanMoveTo.minByOrNull { it.value.movementUsed }!!.key)
         }
 
         if (unit.isAutomatingRoadConnection())

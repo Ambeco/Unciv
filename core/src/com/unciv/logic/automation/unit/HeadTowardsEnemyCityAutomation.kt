@@ -148,7 +148,7 @@ object HeadTowardsEnemyCityAutomation {
         // Sort by closest distance to target city, then by the least amount of moves needed to get into fire range
         val tileToMoveTo = candidateTiles.sortedWith(compareBy(
             { it.key.aerialDistanceTo(closestReachableEnemyCity) },
-            { it.value.totalMovement }
+            { it.value.movementUsed }
         )).firstOrNull()
 
         if (tileToMoveTo != null) {

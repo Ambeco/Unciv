@@ -23,7 +23,7 @@ class UnitMovement(val unit: MapUnit) {
 
     @Cache private val pathfindingCache = PathfindingCache(unit)
 
-    class ParentTileAndTotalMovement(val tile: Tile, val parentTile: Tile, val totalMovement: Float)
+    class ParentTileAndTotalMovement(val tile: Tile, val parentTile: Tile, val turns: Int, val movementUsed: Float)
 
     @Readonly fun isUnknownTileWeShouldAssumeToBePassable(tile: Tile) = !unit.civ.hasExplored(tile)
     
@@ -47,7 +47,7 @@ class UnitMovement(val unit: MapUnit) {
         val currentUnitTile = unit.currentTile
         // This is for performance, because this is called all the time
         val unitTile = if (position == currentUnitTile.position) currentUnitTile else currentUnitTile.tileMap[position]
-        distanceToTiles[unitTile] = ParentTileAndTotalMovement(unitTile, unitTile, 0f)
+        distanceToTiles[unitTile] = ParentTileAndTotalMovement(unitTile, unitTile, 0, 0f)
 
         // If I can't move my only option is to stay...
         if (unitMovement == 0f || unit.cache.cannotMove) return distanceToTiles
@@ -65,7 +65,7 @@ class UnitMovement(val unit: MapUnit) {
                     if (tilesToIgnoreBitset != null && tilesToIgnoreBitset.get(neighbor.zeroBasedIndex)) continue // ignore this tile
                     var totalDistanceToTile: Float = when {
                         !neighbor.isExplored(unit.civ) ->
-                            distanceToTiles[tileToCheck]!!.totalMovement + 1f  // If we don't know then we just guess it to be 1.
+                            distanceToTiles[tileToCheck]!!.movementUsed + 1f  // If we don't know then we just guess it to be 1.
                         
                         !canPassThroughCache.getOrPut(neighbor.zeroBasedIndex){
                             canPassThrough(neighbor)
@@ -78,12 +78,12 @@ class UnitMovement(val unit: MapUnit) {
                             val movementCost = movementCostCache.getOrPut(key) {
                                 MovementCost.getMovementCostBetweenAdjacentTilesEscort(unit, tileToCheck, neighbor, considerZoneOfControl, includeOtherEscortUnit)
                             }
-                            distanceToTiles[tileToCheck]!!.totalMovement + movementCost
+                            distanceToTiles[tileToCheck]!!.movementUsed + movementCost
                         }
                     }
 
                     val currentBestPath = distanceToTiles[neighbor]
-                    if (currentBestPath == null || currentBestPath.totalMovement > totalDistanceToTile) { // this is the new best path
+                    if (currentBestPath == null || currentBestPath.movementUsed > totalDistanceToTile) { // this is the new best path
                         val usableMovement = if (includeOtherEscortUnit && unit.isEscorting())
                             minOf(unitMovement, unit.getOtherEscortUnit()!!.currentMovement)
                         else unitMovement
@@ -95,7 +95,7 @@ class UnitMovement(val unit: MapUnit) {
                         // In Civ V, you can always travel between adjacent tiles, even if you don't technically
                         // have enough movement points - it simply depletes what you have
 
-                        distanceToTiles[neighbor] = ParentTileAndTotalMovement(neighbor, tileToCheck, totalDistanceToTile)
+                        distanceToTiles[neighbor] = ParentTileAndTotalMovement(neighbor, tileToCheck, 0, totalDistanceToTile)
                     }
                 }
 
@@ -258,7 +258,7 @@ class UnitMovement(val unit: MapUnit) {
             in destinationNeighbors -> currentTile // We're right nearby anyway, no need to move
             else -> destinationNeighbors
                 .filter { distanceToTiles.containsKey(it) && canMoveTo(it) }
-                .minByOrNull { distanceToTiles.getValue(it).totalMovement } // we can get a little closer
+                .minByOrNull { distanceToTiles.getValue(it).movementUsed } // we can get a little closer
                 ?: currentTile // We can't get closer...
         }
     }

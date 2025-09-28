@@ -3,13 +3,14 @@ package com.unciv.utils
 import com.badlogic.gdx.utils.Array
 import yairm210.purity.annotations.Pure
 import yairm210.purity.annotations.Readonly
+import java.util.BitSet
 import kotlin.random.Random
 
 /** Get one random element of a given List.
  *
  * The probability for each element is proportional to the value of its corresponding element in the [weights] List.
  */
-@Readonly 
+@Readonly
 fun <T> List<T>.randomWeighted(weights: List<Float>, random: Random = Random): T {
     if (this.isEmpty()) throw NoSuchElementException("Empty list.")
     if (this.size != weights.size) throw UnsupportedOperationException("Weights size does not match this list size.")
@@ -131,3 +132,22 @@ fun <T> ArrayList<T?>.getOrPut(index: Int, getValue: () -> T): T {
     this[index] = value // Now we can safely set the value
     return value
 }
+
+inline fun BitSet.forEachSetBit(action: (Int) -> Unit) {
+    var bit = nextSetBit(0)
+    while (bit >= 0) {
+        action(bit)
+        bit = nextSetBit(bit + 1)
+    }
+}
+
+inline fun BitSet.forEachClearBit(action: (Int) -> Unit) {
+    var bit = nextClearBit(0)
+    while (bit >= 0) {
+        action(bit)
+        bit = nextClearBit(bit + 1)
+    }
+}
+
+inline fun BitSet.hasAnySetBit(): Boolean = nextSetBit(0) >= 0
+
