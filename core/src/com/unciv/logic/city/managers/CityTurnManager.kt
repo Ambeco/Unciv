@@ -18,6 +18,8 @@ class CityTurnManager(val city: City) {
 
 
     fun startTurn() {
+        city.clearCaches()
+        
         // Construct units at the beginning of the turn,
         // so they won't be generated out in the open and vulnerable to enemy attacks before you can control them
         city.cityConstructions.constructIfEnough()
@@ -150,6 +152,8 @@ class CityTurnManager(val city: City) {
             city.health = min(city.health + 20, city.getMaxHealth())
             city.population.unassignExtraPopulation()
         }
+        
+        city.clearCaches()
     }
 
 }

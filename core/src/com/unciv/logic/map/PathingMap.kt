@@ -211,6 +211,17 @@ class PathingMap(
     }
 
     companion object {
+        @Readonly
+        private fun isTileCanAttackThrough(civInfo: Civilization, tile: Tile, targetCiv: Civilization): Boolean {
+            val owner = tile.getOwner()
+            return !tile.isImpassible()
+                && (owner == targetCiv || owner == null || civInfo.diplomacyFunctions.canPassThroughTiles(owner))
+        }
+
+        @Readonly
+        private fun isLandTileCanAttackThrough(civInfo: Civilization, tile: Tile, targetCiv: Civilization): Boolean {
+            return tile.isLand && isTileCanAttackThrough(civInfo, tile, targetCiv)
+        }
 
         @Readonly
         fun createUnitPathingMap(unit: MapUnit): PathingMap {
@@ -237,6 +248,32 @@ class PathingMap(
                     else 0
                 },
                 { it.hasConnection(unit.civ) }
+            )
+        }
+
+        @Readonly
+        fun createLandAttackPathingMap(civ: Civilization, startingPoint: Tile, targetCiv: Civilization): PathingMap {
+            return PathingMap(
+                { startingPoint },
+                { DEFAULT_TIMEOUT.toFloat() },
+                DEFAULT_TIMEOUT,
+                { isLandTileCanAttackThrough(civ, it, targetCiv) },
+                { from, to -> roadPreferredMovementCost(civ, from, to) },
+                { to -> 0 },
+                { it.hasConnection(civ) }
+            )
+        }
+
+        @Readonly
+        fun createAmphibiousAttackPathingMap(civ: Civilization, startingPoint: Tile, targetCiv: Civilization): PathingMap {
+            return PathingMap(
+                { startingPoint },
+                { DEFAULT_TIMEOUT.toFloat() },
+                DEFAULT_TIMEOUT,
+                { isTileCanAttackThrough(civ, it, targetCiv) },
+                { from, to -> roadPreferredMovementCost(civ, from, to) },
+                { to -> 0 },
+                { it.hasConnection(civ) }
             )
         }
 
