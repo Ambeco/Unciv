@@ -1,11 +1,13 @@
 package com.unciv.logic.automation.unit
 
 import com.badlogic.gdx.math.Vector2
+import com.unciv.UncivGame
 import com.unciv.logic.civilization.Civilization
 import com.unciv.logic.civilization.MapUnitAction
 import com.unciv.logic.civilization.NotificationCategory
 import com.unciv.logic.civilization.NotificationIcon
 import com.unciv.logic.map.MapPathing
+import com.unciv.logic.map.PathingMap
 import com.unciv.logic.map.mapunit.MapUnit
 import com.unciv.logic.map.tile.RoadStatus
 import com.unciv.logic.map.tile.Tile
@@ -52,7 +54,10 @@ class RoadToAutomation(val civInfo: Civilization) {
 
         // The path does not exist, create it
         if (pathToDest == null) {
-            val foundPath: List<Tile>? = MapPathing.getRoadPath(unit, currentTile, destinationTile)
+            val foundPath: List<Tile>? = 
+                if (UncivGame.Current.settings.aStarPathing)
+                    PathingMap.createRoadPathingMap(unit.civ, unit.getTile()).getShortestPath(destinationTile)
+                else MapPathing.getRoadPath(unit, unit.getTile(), destinationTile)
             if (foundPath == null) {
                 Log.debug("WorkerAutomation: $unit -> connect road failed")
                 stopAndCleanAutomation(unit)
