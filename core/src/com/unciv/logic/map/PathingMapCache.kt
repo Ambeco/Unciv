@@ -320,7 +320,7 @@ internal class PathingMapCache private constructor(
     /**
      * The key for this cache. If the key no longer matches, then the cache is invalid
      */
-    internal val key: PathingMapCacheKey,
+    internal var key: PathingMapCacheKey,
 
     /**
      * Frontier list of the tiles to be checked.
@@ -390,6 +390,11 @@ internal class PathingMapCache private constructor(
             update.nodesNeedingNeighbors.andNot(update.addedNeighborNodes)
             nodesNeedingNeighbors.or(update.nodesNeedingNeighbors)
         }
+    }
+
+    fun reset(cacheKey: PathingMapCacheKey) {
+        clear()
+        key = cacheKey
     }
 
     fun clear() {
