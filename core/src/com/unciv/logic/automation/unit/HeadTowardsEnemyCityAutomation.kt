@@ -138,23 +138,21 @@ object HeadTowardsEnemyCityAutomation {
             return true
 
         val tilesInBombardRange = closestReachableEnemyCity.getTilesInDistance(2).toSet()
-        val candidateTiles = unitDistanceToTiles.asSequence().filter {
-            it.key.aerialDistanceTo(closestReachableEnemyCity) >= unitRange
-                && it.key !in tilesInBombardRange
-                && unit.getDamageFromTerrain(it.key) <= 0 // Don't set up on a mountain 
+        val candidateTiles = unitDistanceToTiles.filter {tile ->
+            tile.aerialDistanceTo(closestReachableEnemyCity) >= unitRange
+                && tile !in tilesInBombardRange
+                && unit.getDamageFromTerrain(tile) <= 0 // Don't set up on a mountain 
                 // Avoid mountains in path because unitDistanceToTiles parameter doesn't exclude them due to getMovementToTilesAtPosition
-                && unit.movement.canMoveTo(it.key)
+                && unit.movement.canMoveTo(tile)
         }
 
         // Sort by closest distance to target city, then by the least amount of moves needed to get into fire range
-        val tileToMoveTo = candidateTiles.sortedWith(compareBy(
-            { it.key.aerialDistanceTo(closestReachableEnemyCity) },
-            { it.value.totalMovement }
-        )).firstOrNull()
+        val tileToMoveTo = candidateTiles.minTileByOrNull{tile ->
+            tile.aerialDistanceTo(closestReachableEnemyCity) + candidateTiles.getMovement(tile) / 100 }
 
         if (tileToMoveTo != null) {
             // move into position far away enough so that city bombard or enemy units don't hurt
-            unit.movement.headTowards(tileToMoveTo.key)
+            unit.movement.headTowards(tileToMoveTo)
             return true
         }
 

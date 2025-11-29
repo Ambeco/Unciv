@@ -1,7 +1,6 @@
 package com.unciv.logic.map
 
 import com.badlogic.gdx.utils.IntIntMap
-import com.unciv.UncivGame
 import com.unciv.logic.civilization.diplomacy.RelationshipLevel
 import com.unciv.logic.map.FixedPointMovement.Companion.FPM_ZERO
 import com.unciv.logic.map.PathingMap.Companion.ALWAYS_LOG
@@ -92,6 +91,8 @@ internal class AStarPathfinder(
      */
     init {
         require(timeLimitTurns < MAX_TURNS)
+        if (destination != null) 
+            require(destination.tileMap === tileMap)
         // Add all the initial tiles to check to the priority queue
         cache.nodesNeedingNeighbors.forEachSetBit {
             val node = RouteNode(routeNodes[it])
@@ -115,7 +116,7 @@ internal class AStarPathfinder(
     
     private fun neighborNeedsCalcuating(currentNode: RouteNode, neighborTile: Tile): Boolean {
         val currentTile = currentNode.tile(tileMap)
-        val startingPoint = cache.key.startingPoint
+        val startingPoint = cache.key.startingPoint.position
         val alreadyCalculatedNode = RouteNode(routeNodes[neighborTile.zeroBasedIndex])
         if (cache.addedNeighborNodes.get(neighborTile.zeroBasedIndex) && alreadyCalculatedNode.damagingTiles <= currentNode.damagingTiles) {
             // Note this only checks if THIS thread calculated it
@@ -152,7 +153,7 @@ internal class AStarPathfinder(
 
     private fun calculateNeighborNode(currentNode: RouteNode, neighborTile: Tile): RouteNode? {
         val currentTile = currentNode.tile(tileMap)
-        val startingPoint = cache.key.startingPoint
+        val startingPoint = cache.key.startingPoint.position
         val damagingTiles = currentNode.damagingTiles
         val cost = cost(currentTile, neighborTile).coerceAtMost(fpmFullMovement)
         val newUsedMovement = (currentNode.moveUsedThisTurn + cost).coerceAtMost(fpmFullMovement)
@@ -233,7 +234,7 @@ internal class AStarPathfinder(
     
     @VisibleForTesting
     @Suppress("unused")
-    fun toDebugString() = cache.toDebugString(UncivGame.Current.gameInfo!!.tileMap, destination)
+    fun toDebugString() = cache.toDebugString(destination)
 
     companion object {
         // Setting this higher than the fastest speed (railroads at 0.1f) will cause the pathfinding

@@ -7,6 +7,7 @@ import com.unciv.UncivGame
 import com.unciv.logic.automation.Timers.Companion.timeThis
 import com.unciv.logic.civilization.diplomacy.RelationshipLevel
 import com.unciv.logic.map.BFS
+import com.unciv.logic.map.FixedPointMovement.Companion.FPM_ZERO
 import com.unciv.logic.map.HexCoord
 import com.unciv.logic.map.HexMath
 import com.unciv.logic.map.PathingMap
@@ -15,7 +16,6 @@ import com.unciv.logic.map.tile.Tile
 import com.unciv.models.UnitActionType
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.ui.components.UnitMovementMemoryType
-import com.unciv.utils.Log
 import com.unciv.utils.getOrPut
 import yairm210.purity.annotations.Cache
 import yairm210.purity.annotations.InternalState
@@ -53,8 +53,6 @@ class UnitMovement(val unit: MapUnit) {
     @Cache private val aStarPathingWithoutEscort by lazy { PathingMap.createUnitPathingMap(unit, includeEscortUnit = false) }
     @Cache private val roadPathing by lazy { PathingMap.createRoadPathingMap(unit.civ, unit.currentTile) }
 
-    class ParentTileAndTotalMovement(val tile: Tile, val parentTile: Tile, val totalMovement: Float)
-
     @Readonly fun isUnknownTileWeShouldAssumeToBePassable(tile: Tile) = !unit.civ.hasExplored(tile)
     
     /**
@@ -79,12 +77,12 @@ class UnitMovement(val unit: MapUnit) {
                 else aStarPathingWithoutEscort
             return pathingMap.getMovementToTilesAtPosition()
         }
-        @LocalState val distanceToTiles = PathsToTilesWithinTurn()
+        @LocalState val distanceToTiles = PathsToTilesWithinTurnHashMap()
 
         val currentUnitTile = unit.currentTile
         // This is for performance, because this is called all the time
         val unitTile = if (position == currentUnitTile.position) currentUnitTile else currentUnitTile.tileMap[position]
-        distanceToTiles[unitTile] = ParentTileAndTotalMovement(unitTile, unitTile, 0f)
+        distanceToTiles[unitTile] = ParentTileAndTotalMovementData(unitTile, 0f)
 
         // If I can't move my only option is to stay...
         if (unitMovement == 0f || unit.cache.cannotMove) return distanceToTiles
@@ -132,7 +130,7 @@ class UnitMovement(val unit: MapUnit) {
                         // In Civ V, you can always travel between adjacent tiles, even if you don't technically
                         // have enough movement points - it simply depletes what you have
 
-                        distanceToTiles[neighbor] = ParentTileAndTotalMovement(neighbor, tileToCheck, totalDistanceToTile)
+                        distanceToTiles[neighbor] = ParentTileAndTotalMovementData(tileToCheck, totalDistanceToTile)
                     }
                 }
 
@@ -217,14 +215,15 @@ class UnitMovement(val unit: MapUnit) {
                         movementCostCache
                     )
                 }
-                for (reachableTile in distanceToTilesThisTurn.keys) {
+                val shortestPath: List<Tile>? =
+                    distanceToTilesThisTurn.firstNotNullTileOfOrNull { reachableTile ->
                     // Avoid damaging terrain on first pass
                     if (avoidDamagingTerrain && unit.getDamageFromTerrain(reachableTile) > 0)
-                        continue
+                        return@firstNotNullTileOfOrNull null
                     // Avoid Enemy Territory if Civilian and Automated. For multi-turn pathing
                     if (unit.isCivilian() && unit.isAutomated() && reachableTile.isEnemyTerritory(civilization))
-                        continue
-                    if (reachableTile == destination) {
+                        return@firstNotNullTileOfOrNull null
+                        if (reachableTile == destination) {
                         val path = mutableListOf(destination)
                         // Traverse the tree upwards to get the list of tiles leading to the destination
                         var intermediateTile = tileToCheck
@@ -235,17 +234,21 @@ class UnitMovement(val unit: MapUnit) {
                         path.reverse() // and reverse in order to get the list in chronological order
                         pathfindingCache.setShortestPathCache(destination, path)
 
-                        return path
+                        return@firstNotNullTileOfOrNull path
                     }
                     
-                    if (movementTreeParents.containsKey(reachableTile)) continue // We cannot be faster than anything existing...
+                    if (movementTreeParents.containsKey(reachableTile)) 
+                        return@firstNotNullTileOfOrNull null // We cannot be faster than anything existing...
                     if (!isUnknownTileWeShouldAssumeToBePassable(reachableTile) &&
                         !canMoveToCache.getOrPut(reachableTile) { canMoveTo(reachableTile) })
-                    // This is a tile that we can't actually enter - either an intermediary tile containing our unit, or an enemy unit/city
-                        continue
+                        // This is a tile that we can't actually enter - either an intermediary tile containing our unit, or an enemy unit/city
+                        return@firstNotNullTileOfOrNull null
                     movementTreeParents[reachableTile] = tileToCheck
                     newTilesToCheck.add(reachableTile)
+                    return@firstNotNullTileOfOrNull null
                 }
+                if (shortestPath != null)
+                    return shortestPath
             }
 
             if (newTilesToCheck.isEmpty()) {
@@ -283,7 +286,7 @@ class UnitMovement(val unit: MapUnit) {
             val shortestDestination = getShortestPath(finalDestination).firstOrNull()
                 ?: throw UnreachableDestinationException("$unit ${unit.currentTile} cannot reach $finalDestination")
             if (shortestDestination !in distanceToTiles)
-                return distanceToTiles.keys.minBy { it.aerialDistanceTo(finalDestination) }
+                return distanceToTiles.minTileBy {tile -> tile.aerialDistanceTo(finalDestination).toFloat() }
             return shortestDestination
         }
 
@@ -297,7 +300,7 @@ class UnitMovement(val unit: MapUnit) {
             in destinationNeighbors -> currentTile // We're right nearby anyway, no need to move
             else -> destinationNeighbors
                 .filter { distanceToTiles.containsKey(it) && canMoveTo(it) }
-                .minByOrNull { distanceToTiles.getValue(it).totalMovement } // we can get a little closer
+                .minByOrNull { distanceToTiles.getMovement(it) } // we can get a little closer
                 ?: currentTile // We can't get closer...
         }
     }
@@ -354,9 +357,9 @@ class UnitMovement(val unit: MapUnit) {
             }
             includeOtherEscortUnit && unit.isEscorting() -> {
                     val otherUnitTiles = unit.getOtherEscortUnit()!!.movement.getReachableTilesInCurrentTurn(false).toSet()
-                    unit.movement.getDistanceToTiles().filter { otherUnitTiles.contains(it.key) }.keys.asSequence()
+                    unit.movement.getDistanceToTiles().filter {tile -> otherUnitTiles.contains(tile) }.asTileSequence()
                 }
-            else -> unit.movement.getDistanceToTiles().keys.asSequence()
+            else -> unit.movement.getDistanceToTiles().asTileSequence()
         }
     }
 
@@ -970,21 +973,5 @@ class PathfindingCache(private val unit: MapUnit) {
         currentTile = unit.getTile()
         destination = null
         shortestPathCache = listOf()
-    }
-}
-
-class PathsToTilesWithinTurn : LinkedHashMap<Tile, UnitMovement.ParentTileAndTotalMovement>() {
-    fun getPathToTile(tile: Tile): List<Tile> {
-        if (!containsKey(tile)) {
-            Log.debug("PathsToTilesWithinTurn#getPathToTile does not contain $tile: $this")
-            throw Exception("Can't reach $tile")
-        }
-        val reversePathList = ArrayList<Tile>()
-        var currentTile = tile
-        while (get(currentTile)!!.parentTile != currentTile) {
-            reversePathList.add(currentTile)
-            currentTile = get(currentTile)!!.parentTile
-        }
-        return reversePathList.reversed()
     }
 }
