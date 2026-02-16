@@ -2,7 +2,9 @@ package com.unciv.models.skins
 
 import com.badlogic.gdx.graphics.Color
 import com.unciv.Constants
+import com.unciv.utils.JsonSerialized
 
+@JsonSerialized
 class SkinConfig(initialCapacity: Int) {
     var baseColor: Color = Color(0x004085bf)
     var clearColor: Color = Color(0x000033ff)

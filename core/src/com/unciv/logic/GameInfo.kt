@@ -38,6 +38,7 @@ import com.unciv.ui.audio.MusicTrackChooserFlags
 import com.unciv.ui.screens.savescreens.Gzip
 import com.unciv.ui.screens.worldscreen.status.NextTurnProgress
 import com.unciv.utils.DebugUtils
+import com.unciv.utils.JsonSerialized
 import com.unciv.utils.debug
 import yairm210.purity.annotations.Readonly
 import java.security.MessageDigest
@@ -322,6 +323,7 @@ class GameInfo : IsPartOfGameInfoSerialization, HasGameInfoSerializationVersion 
     fun calculateChecksum(): String {
         val oldChecksum = checksum
         checksum = "" // Checksum calculation cannot include old checksum, obvs
+        val str = json().toJson(this).toByteArray(Charsets.UTF_8)
         val bytes = MessageDigest
             .getInstance("SHA-1")
             .digest(json().toJson(this).toByteArray(Charsets.UTF_8))
@@ -837,6 +839,7 @@ class GameInfo : IsPartOfGameInfoSerialization, HasGameInfoSerializationVersion 
  * Reduced variant of GameInfo used for load preview and multiplayer saves.
  * Contains additional data for multiplayer settings.
  */
+@JsonSerialized
 class GameInfoPreview() {
     var civilizations = mutableListOf<CivilizationInfoPreview>()
     var difficulty = "Chieftain"

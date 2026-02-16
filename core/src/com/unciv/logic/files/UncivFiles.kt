@@ -199,6 +199,7 @@ class UncivFiles(
     fun saveMultiplayerGamePreview(game: GameInfoPreview, file: FileHandle, saveCompletionCallback: (Exception?) -> Unit = ::rethrowIfNotNull) {
         try {
             debug("Saving GameInfoPreview %s to %s", game.gameId, file.path())
+            val str = json().toJson(game)
             json().toJson(game, file)
             saveCompletionCallback(null)
         } catch (ex: Exception) {
@@ -254,6 +255,7 @@ class UncivFiles(
     }
 
     fun loadGamePreviewFromFile(gameFile: FileHandle): GameInfoPreview {
+        val str = gameFile.readString()
         val preview = json().fromJson(GameInfoPreview::class.java, gameFile)
             ?: throw emptyFile(gameFile)
         preview.migrateCivID()
@@ -309,6 +311,7 @@ class UncivFiles(
         var settings: GameSettings? = null
         if (settingsFile.exists()) {
             try {
+                val str = settingsFile.readString()
                 settings = json().fromJson(GameSettings::class.java, settingsFile)
                 if (settings.isMigrationNecessary()) {
                     settings.doMigrations(JsonReader().parse(settingsFile))
@@ -325,7 +328,8 @@ class UncivFiles(
     }
 
     fun setGeneralSettings(gameSettings: GameSettings) {
-        getGeneralSettingsFile().writeString(json().toJson(gameSettings), false, Charsets.UTF_8.name())
+        val str = json().toJson(gameSettings)
+        getGeneralSettingsFile().writeString(str, false, Charsets.UTF_8.name())
     }
 
     //endregion
@@ -347,6 +351,7 @@ class UncivFiles(
     fun saveModCache(modDataList: List<ModUIData>) {
         val file = getLocalFile(MOD_LIST_CACHE_FILE_NAME)
         try {
+            val str = json().toJson(modDataList)
             json().toJson(modDataList, file)
         }
         catch (ex: Exception){ // Not a huge deal if this fails
@@ -395,6 +400,7 @@ class UncivFiles(
             val file = FileHandle(baseDirectory).child(SETTINGS_FILE_NAME)
             if (file.exists()){
                 try {
+                    val str = file.readString()
                     return json().fromJson(GameSettings::class.java, file)
                 } catch (ex: Exception) {
                     Log.error("Exception while deserializing GameSettings JSON", ex)
@@ -432,6 +438,7 @@ class UncivFiles(
          * @throws SerializationException
          */
         fun gameInfoPreviewFromString(gameData: String): GameInfoPreview {
+            val str = Gzip.unzip(gameData)
             val preview = json().fromJson(GameInfoPreview::class.java, Gzip.unzip(gameData))
             preview.migrateCivID()
             return preview
@@ -449,7 +456,8 @@ class UncivFiles(
 
         /** Returns gzipped serialization of preview [game] */
         fun gameInfoToString(game: GameInfoPreview): String {
-            return Gzip.zip(json().toJson(game))
+            val str = json().toJson(game)
+            return Gzip.zip(str)
         }
 
         private val charsForbiddenInFileNames = setOf('\\', '/', ':')

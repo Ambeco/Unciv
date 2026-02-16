@@ -6,10 +6,13 @@ import com.unciv.json.json
 import com.unciv.logic.github.GithubAPI
 import com.unciv.ui.components.widgets.TranslatedSelectBox
 import com.unciv.logic.github.Github
+import com.unciv.utils.JsonSerialized
 
 
+@JsonSerialized
 class ModCategories : ArrayList<ModCategories.Category>() {
 
+    @JsonSerialized
     class Category(
         val label: String,
         val topic: String,

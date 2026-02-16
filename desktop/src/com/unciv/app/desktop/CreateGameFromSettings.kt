@@ -11,12 +11,14 @@ import com.unciv.logic.multiplayer.storage.MultiplayerServer
 import com.unciv.logic.multiplayer.storage.UncivServerFileStorage
 import com.unciv.models.metadata.GameParameters
 import com.unciv.models.metadata.GameSetupInfo
+import com.unciv.utils.JsonSerialized
 
 /**
  * Configuration schema for creating games from JSON files.
  * Represents the complete game setup including map parameters,
  * game parameters, and optional multiplayer server password.
  */
+@JsonSerialized
 data class GameConfig(
     val gameParameters: GameParameters = GameParameters(),
     val mapParameters: MapParameters = MapParameters(),

@@ -3,7 +3,9 @@ package com.unciv.models.tilesets
 import com.badlogic.gdx.graphics.Color
 import com.unciv.Constants
 import com.unciv.ui.images.ImageGetter
+import com.unciv.utils.JsonSerialized
 
+@JsonSerialized
 class TileSetConfig {
     var useColorAsBaseTerrain = false
     var useSummaryImages = false
