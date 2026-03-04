@@ -439,7 +439,6 @@ object UnitActionsFromUniques {
     }
 
     internal fun getTransformActions(unit: MapUnit) = sequence {
-        val unitTile = unit.getTile()
         val civInfo = unit.civ
         val stateForConditionals = unit.cache.state
 
@@ -479,6 +478,7 @@ object UnitActionsFromUniques {
                 title = {title},
                 associatedUnique = unique,
                 action = {
+                    val unitTile = unit.getTile()
                     val oldMovement = unit.currentMovement
                     unit.destroy()
                     val newUnit =

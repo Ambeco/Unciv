@@ -71,7 +71,8 @@ class WorkerAutomation(
     /**
      * Automate one Worker - decide what to do and where, move, start or continue work.
      */
-    fun automateWorkerAction(unit: MapUnit, dangerousTiles: HashSet<Tile>, localUniqueCache: LocalUniqueCache = LocalUniqueCache()) {
+    fun automateWorkerAction(unit: MapUnit, uniqueActionQueue: UniqueActionQueue, dangerousTiles: HashSet<Tile>, localUniqueCache: LocalUniqueCache = LocalUniqueCache()) {
+        // calle by CivilianUnitAutomation after useFrequency=72f
         val currentTile = unit.getTile()
         // Must be called before any getPriority checks to guarantee the local road cache is processed
         val citiesToConnect = roadBetweenCitiesAutomation.getNearbyCitiesToConnect(unit)
@@ -80,6 +81,7 @@ class WorkerAutomation(
             && getFullPriority(unit.getTile(), unit, localUniqueCache) >= 2) {
             return
         }
+        uniqueActionQueue.automateUniqueActionsUntilUseFrequency(70f)
         val tileToWork = findTileToWork(unit, dangerousTiles, localUniqueCache)
 
         if (tileToWork != currentTile && tileToWork != null) {
@@ -95,8 +97,10 @@ class WorkerAutomation(
         // Support Alpha Frontier-Style Workers that _also_ have the "May create improvements on water resources" unique
         if (unit.cache.hasUniqueToCreateWaterImprovements && automateWorkBoats(unit)) return
 
+        uniqueActionQueue.automateUniqueActionsUntilUseFrequency(50f)
         if (tryHeadTowardsUndevelopedCity(unit, localUniqueCache, currentTile)) return
 
+        uniqueActionQueue.automateUniqueActionsUntilUseFrequency(25f)
         // Nothing to do, try again to connect cities
         if (roadBetweenCitiesAutomation.tryConnectingCities(unit, citiesToConnect)) return
 
@@ -105,6 +109,7 @@ class WorkerAutomation(
         unit.civ.addNotification("${unit.shortDisplayName()} has no work to do.", MapUnitAction(unit), NotificationCategory.Units, unit.name, "OtherIcons/Sleep")
 
         // Idle CS units should wander so they don't obstruct players so much
+        uniqueActionQueue.automateRemainingUniqueActions()
         if (unit.civ.isCityState)
             wander(unit, stayInTerritory = true, tilesToAvoid = dangerousTiles)
     }
