@@ -60,7 +60,7 @@ object SpecificUnitAutomation {
         if (tileToSteal != null) {
             unit.movement.headTowards(tileToSteal)
             if (unit.hasMovement() && unit.currentTile == tileToSteal)
-                UnitActionsFromUniques.getImprovementConstructionActionsFromGeneralUnique(unit, unit.currentTile).firstOrNull()?.action?.invoke()
+                UnitActionsFromUniques.getImprovementConstructionActionsFromGeneralUnique(unit, unit.currentTile).firstOrNull()?.invoke()
             return true
         }
 
@@ -87,7 +87,7 @@ object SpecificUnitAutomation {
         var bestCityLocation: Tile? = null
 
         if (unit.civ.gameInfo.turns == 0 && unit.civ.cities.isEmpty() && bestTilesInfo.tileRankMap.containsKey(unit.getTile())) {   // Special case, we want AI to settle in place on turn 1.
-            val foundCityAction = UnitActionsFromUniques.getFoundCityAction(unit, unit.getTile())
+            val foundCityAction = UnitActionsFromUniques.getFoundCityAction(unit)
             // Depending on era and difficulty we might start with more than one settler. In that case settle the one with the best location
             val allUnsettledSettlers = unit.civ.units.getCivUnits().filter { it.hasMovement() && it.baseUnit == unit.baseUnit }
 
@@ -97,8 +97,8 @@ object SpecificUnitAutomation {
                     bestTilesInfo.tileRankMap[it.getTile()]!!
                 else -1f
             }
-            if (bestSettlerInRange == unit && foundCityAction?.action != null) {
-                foundCityAction.action.invoke()
+            if (bestSettlerInRange == unit && foundCityAction?.enabled() ?: false) {
+                foundCityAction.invoke()
                 return
             }
             // Since this settler is not in the best location, lets assume the best settler will found their city where they are
@@ -157,20 +157,23 @@ object SpecificUnitAutomation {
             return
         }
 
-        val foundCityAction = UnitActionsFromUniques.getFoundCityAction(unit, bestCityLocation)
-        if (foundCityAction?.action == null) { // this means either currentMove == 0 or city within 3 tiles
+        val foundCityAction = UnitActionsFromUniques.getFoundCityAction(unit)
+        if (foundCityAction?.enabled() != true) { // this means either currentMove == 0 or city within 3 tiles
             if (unit.hasMovement() && !unit.civ.isOneCityChallenger()) // therefore, city within 3 tiles
                 throw Exception("City within distance")
             return
         }
 
         val shouldSettle = (unit.getTile() == bestCityLocation && unit.hasMovement())
-        if (shouldSettle) return foundCityAction.action.invoke()
+        if (shouldSettle) {
+            foundCityAction.invoke()
+            return
+        }
         //Settle if we're already on the best tile, before looking if we should retreat from barbarians
         if (tryRunAwayIfNeccessary(unit)) return 
         unit.movement.headTowards(bestCityLocation)
         val shouldSettleNow = (unit.getTile() == bestCityLocation && unit.hasMovement())
-        if (shouldSettleNow) foundCityAction.action.invoke() 
+        if (shouldSettleNow) foundCityAction.invoke()
     }
 
     /** @return whether there was any progress in placing the improvement. A return value of `false`

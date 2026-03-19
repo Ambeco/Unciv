@@ -1233,7 +1233,7 @@ object UniqueTriggerActivation {
                     else UnitActionsUpgrade.getFreeUpgradeAction(unit)
                 if (upgradeAction.none()) return null
                 return {
-                    (upgradeAction.minBy { (it as UpgradeUnitAction).unitToUpgradeTo.cost }).action!!()
+                    (upgradeAction.minBy { (it as UpgradeUnitAction).unitToUpgradeTo.cost }).invoke()
                     if (notification != null)
                         unit.civ.addNotification(notification, MapUnitAction(unit), NotificationCategory.Units, unit.name, "UnitActionIcons/Upgrade")
                     true

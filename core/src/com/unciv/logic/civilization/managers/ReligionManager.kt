@@ -507,7 +507,10 @@ class ReligionManager : IsPartOfGameInfoSerialization {
 
         val religion = missionary.civ.gameInfo.religions[missionary.religion] ?: return false
         if (religion.isPantheon()) return false
-        if (UnitActionModifiers.getUsableUnitActionUniques(missionary, UniqueType.CanSpreadReligion).none()) return false
+        if (UnitActionModifiers.getUsableUnitActionUniques(missionary, UniqueType.CanSpreadReligion)
+                .filter { it.conditionalsApply(missionary.cache.state) }
+                .none()) 
+            return false
         return true
     }
 

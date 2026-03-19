@@ -2,6 +2,8 @@ package com.unciv.models
 
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.unciv.Constants
+import com.unciv.logic.map.mapunit.MapUnit
+import com.unciv.logic.map.tile.Tile
 import com.unciv.models.ruleset.unique.Unique
 import com.unciv.models.ruleset.unit.BaseUnit
 import com.unciv.models.translations.getPlaceholderParameters
@@ -17,28 +19,35 @@ import com.unciv.utils.hashOf
  * Note this is for the buttons offering actions, not the ongoing action stored with a [MapUnit][com.unciv.logic.map.mapunit.MapUnit]
  */
 open class UnitAction(
+    val unit: MapUnit,
     val type: UnitActionType,
     /** How often this action is used, a higher value means more often and that it should be on an earlier page.
      * 100 is very frequent, 50 is somewhat frequent, less than 25 is press one time for multi-turn movement.
      * A Rare case is > 100 if a button is something like add in capital, promote or something,
      * we need to inform the player that taking the action is an option. */
     val useFrequency: Float,
-    val title: String = type.value,
-    val isCurrentAction: Boolean = false,
+    val title: (tile: Tile) -> String = { type.value },
+    val isCurrentAction: Boolean = unit.action == type.value,
     val uncivSound: UncivSound = type.uncivSound,
     val associatedUnique: Unique? = null,
-    /** Action is Null if this unit *can* execute the action but *not right now* - it's embarked, out of moves, etc */
-    val action: (() -> Unit)? = null
+    val availableResources: ()->Boolean = { true },
+    val availableOnTile: ((tile: Tile) -> Boolean)? = null,
+    private val action: () -> Unit,
 ) {
+    val currentTitle = title(unit.currentTile)
+    fun visible() = availableOnTile?.invoke(unit.currentTile) ?: true
+    fun enabled() = visible() && availableResources()
+    fun invoke() = if (enabled()) { action.invoke(); true} else false
+    
     fun getIcon(size: Float = 20f): Actor {
         if (type.imageGetter != null)
             return type.imageGetter.invoke()
         return when (type) {
             UnitActionType.CreateImprovement -> {
-                ImageGetter.getImprovementPortrait(title.getPlaceholderParameters()[0], size)
+                ImageGetter.getImprovementPortrait(currentTitle.getPlaceholderParameters()[0], size)
             }
             UnitActionType.SpreadReligion -> {
-                val religionName = title.getPlaceholderParameters()[0]
+                val religionName = currentTitle.getPlaceholderParameters()[0]
                 ImageGetter.getReligionPortrait(
                     if (ImageGetter.religionIconExists(religionName)) religionName
                     else "Pantheon", size
@@ -93,7 +102,7 @@ open class UnitAction(
     override fun hashCode(): Int = hashOf(type.hashCode(), isCurrentAction.hashCode(), action.hashCode())
 
     override fun toString(): String {
-        return "UnitAction(type=$type, title='$title', isCurrentAction=$isCurrentAction)"
+        return "UnitAction(type=$type, title='$currentTitle', isCurrentAction=$isCurrentAction)"
     }
 }
 
@@ -103,13 +112,16 @@ open class UnitAction(
  *  to [UI][com.unciv.ui.screens.worldscreen.unit.actions.UnitActionsTable.update]
  */
 class UpgradeUnitAction(
-    title: String,
+    unit: MapUnit,
+    lazyTitle: (tile:Tile) -> String,
     val unitToUpgradeTo: BaseUnit,
     val goldCostOfUpgrade: Int,
     val newResourceRequirements: Counter<String>,
-    action: (() -> Unit)?,
     useFrequency: Float = 120f,
-) : UnitAction(UnitActionType.Upgrade, useFrequency, title, action = action)
+    availableResources: () -> Boolean,
+    tileAvailable: ((tile: Tile) -> Boolean)? = null,
+    action: () -> Unit,
+) : UnitAction(unit, UnitActionType.Upgrade, useFrequency, lazyTitle, availableResources = availableResources, availableOnTile = tileAvailable, action = action)
 
 /**
  * Unit Actions - generic enum with static properties

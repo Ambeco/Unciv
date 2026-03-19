@@ -17,34 +17,36 @@ import kotlin.random.Random
 
 object UnitActionsPillage {
 
-    internal fun getPillageActions(unit: MapUnit, tile: Tile): Sequence<UnitAction> {
-        val pillageAction = getPillageAction(unit, tile)
+    internal fun getPillageActions(unit: MapUnit): Sequence<UnitAction> {
+        val pillageAction = getPillageAction(unit)
             ?: return emptySequence()
-        if (pillageAction.action == null || unit.civ.isAIOrAutoPlaying())
+        if (!pillageAction.visible()) return emptySequence()
+        if (!pillageAction.enabled() || unit.civ.isAIOrAutoPlaying())
             return sequenceOf(pillageAction)
-        else return sequenceOf(UnitAction(UnitActionType.Pillage, 65f, pillageAction.title) {
-            val pillageText = "Are you sure you want to pillage this [${tile.getImprovementToPillageName()!!}]?"
+        else return sequenceOf(UnitAction(unit, UnitActionType.Pillage, 65f, pillageAction.title) {
+            val pillageText = "Are you sure you want to pillage this [${unit.currentTile.getImprovementToPillageName()!!}]?"
             ConfirmPopup(
                 GUI.getWorldScreen(),
                 pillageText,
                 "Pillage",
                 true
             ) {
-                (pillageAction.action)()
+                pillageAction.invoke()
                 GUI.setUpdateWorldOnNextRender()
             }.open()
         })
     }
 
-    internal fun getPillageAction(unit: MapUnit, tile: Tile): UnitAction? {
-        val improvementName = unit.currentTile.getImprovementToPillageName()
-        if (unit.isCivilian() || improvementName == null || tile.getOwner() == unit.civ) return null
+    internal fun getPillageAction(unit: MapUnit): UnitAction? {
+        if (unit.isCivilian()) return null
         return UnitAction(
+            unit,
             UnitActionType.Pillage, 65f,
-            title = "${UnitActionType.Pillage} [$improvementName]",
+            title = { tile -> "${UnitActionType.Pillage} [${tile.getImprovementToPillageName()}]"},
             action = {
-                val pillagedImprovement = unit.currentTile.getImprovementToPillageName()!!  // can this differ from improvementName due to later execution???
-                val pillagingImprovement = unit.currentTile.canPillageTileImprovement()
+                val tile = unit.currentTile
+                val pillagedImprovement = tile.getImprovementToPillageName()!!  // can this differ from improvementName due to later execution???
+                val pillagingImprovement = tile.canPillageTileImprovement()
                 val pillageText = "An enemy [${unit.baseUnit.name}] has pillaged our [$pillagedImprovement]"
                 val icon = "ImprovementIcons/$pillagedImprovement"
                 tile.getOwner()?.addNotification(
@@ -75,8 +77,10 @@ object UnitActionsPillage {
                     tile.removeImprovement()
                 }
                     
-            }.takeIf { unit.hasMovement() && canPillage(unit, tile) }
-        )
+            },
+            availableResources = { unit.hasMovement() },
+            availableOnTile = { tile -> canPillage(unit, tile) && tile.getImprovementToPillageName() != null }, 
+         )
     }
 
     private fun pillageLooting(tile: Tile, unit: MapUnit) {

@@ -322,6 +322,11 @@ class MapUnit : IsPartOfGameInfoSerialization {
     }
 
     @Readonly
+    fun getMatchingUniquesIgnoringConditionals(uniqueType: UniqueType, checkCivInfoUniques: Boolean = false)
+        = getMatchingUniques(uniqueType, GameContext.IgnoreConditionals, checkCivInfoUniques)
+
+
+    @Readonly
     fun hasUnique(
         uniqueType: UniqueType,
         gameContext: GameContext = cache.state,

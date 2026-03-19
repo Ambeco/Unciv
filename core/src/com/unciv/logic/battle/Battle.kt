@@ -82,7 +82,7 @@ object Battle {
 
                 if (UnitActionsPillage.canPillage(attacker.unit, tileToPillage)
                     && tileToPillage.canPillageTileImprovement()) {
-                    UnitActionsPillage.getPillageAction(attacker.unit, tileToPillage)?.action?.invoke()
+                    UnitActionsPillage.getPillageAction(attacker.unit)?.invoke()
                 }
             }
         }

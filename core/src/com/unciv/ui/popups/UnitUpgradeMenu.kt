@@ -65,7 +65,7 @@ class UnitUpgradeMenu(
     }
 
     override fun createScrollableContent() =
-        BaseUnitDescriptions.getUpgradeInfoTable(unitAction.title, unit.baseUnit, unitToUpgradeTo)
+        BaseUnitDescriptions.getUpgradeInfoTable(unitAction.currentTitle, unit.baseUnit, unitToUpgradeTo)
 
     override fun createFixedContent() = Table().apply {
         val singleButton = getButton("Upgrade", KeyboardBinding.Upgrade, ::doUpgrade)
@@ -106,7 +106,7 @@ class UnitUpgradeMenu(
 
     private fun doUpgrade() {
         SoundPlayer.play(unitAction.uncivSound)
-        unitAction.action!!()
+        unitAction.invoke()
     }
 
     private fun doAllUpgrade() {
@@ -114,8 +114,8 @@ class UnitUpgradeMenu(
         for (unit in allUpgradableUnits) {
             val otherAction = UnitActionsUpgrade.getUpgradeActions(unit)
                 .firstOrNull{ (it as UpgradeUnitAction).unitToUpgradeTo == unitToUpgradeTo &&
-                    it.action != null }
-            otherAction?.action?.invoke()
+                    it.availableOnTile!!.invoke(unit.currentTile) }
+            otherAction?.invoke()
         }
     }
 }

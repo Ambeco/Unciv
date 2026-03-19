@@ -92,6 +92,17 @@ class Unique(val text: String, val sourceObjectType: UniqueTarget? = null, val s
         }
         return true
     }
+    
+    @Readonly
+    fun conditionalsTileDependent(): Boolean {
+        // Always allow Timed conditional uniques. They are managed elsewhere
+        if (isTimedTriggerable) return false
+        if (modifiers.isEmpty()) return false
+        for (modifier in modifiers) {
+            if (Conditionals.isTileDependent(modifier)) return true
+        }
+        return false
+    }
 
     @Readonly
     fun getUniqueMultiplier(gameContext: GameContext): Int {

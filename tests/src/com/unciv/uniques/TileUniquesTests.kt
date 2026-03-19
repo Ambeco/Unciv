@@ -36,7 +36,7 @@ class TileUniquesTests {
         val unit = game.addUnit("Warrior", civInfo, tile)
         unit.currentMovement = 2f
 
-        UnitActions.invokeUnitAction(unit, UnitActionType.Pillage)
+        UnitActions.invokeUnitAction(unit, UnitActionType.Pillage, listOf(unit))
         Assert.assertTrue("Pillaging should transfer gold to the civ", civInfo.gold == 20)
         Assert.assertTrue("Pillaging should transfer food to the nearest city", city.population.foodStored == 11)
     }
