@@ -54,7 +54,6 @@ data class GameContext(
         gameInfo = ourCombatant.getCivInfo().gameInfo
     )
 
-
     val relevantUnit by lazy {
         if (ourCombatant != null && ourCombatant is MapUnitCombatant) ourCombatant.unit
         else unit

@@ -1,6 +1,7 @@
-package com.unciv.ui.screens.victoryscreen
+package com.unciv.ui.screens.worldscreen
 
 import com.unciv.testing.GdxTestRunner
+import com.unciv.ui.screens.victoryscreen.RankingType
 import org.junit.Assert
 import org.junit.Test
 import org.junit.runner.RunWith

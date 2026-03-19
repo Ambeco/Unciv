@@ -164,10 +164,10 @@ object CivilianUnitAutomation {
         if (SpecificUnitAutomation.automateImprovementPlacer(unit)) return
         
         val goldenAgeAction = UnitActions.getUnitActions(unit, UnitActionType.TriggerUnique)
-            .filter { it.action != null && it.associatedUnique?.type in listOf(UniqueType.OneTimeEnterGoldenAge,
+            .filter { it.enabled() && it.associatedUnique?.type in listOf(UniqueType.OneTimeEnterGoldenAge,
                 UniqueType.OneTimeEnterGoldenAgeTurns) }.firstOrNull()
         if (goldenAgeAction != null) {
-            goldenAgeAction.action?.invoke()
+            goldenAgeAction.invoke()
             return
         }
 

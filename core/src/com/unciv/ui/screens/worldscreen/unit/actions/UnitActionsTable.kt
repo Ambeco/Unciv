@@ -83,7 +83,7 @@ class UnitActionsTable(val worldScreen: WorldScreen) : Table() {
         val previousPageButton = getUnitActionButton(unit, previousPageAction)
         updateButtonsPerPage(nextPageButton)
 
-        val sortedUnitActions = UnitActions.getUnitActions(unit).sortedByDescending { it.useFrequency }
+        val sortedUnitActions = UnitActions.getUnitActions(unit).filter { it.visible() }.sortedByDescending { it.useFrequency }
         // Distribute sequentially into the buckets
         for (unitAction in sortedUnitActions) {
             var actionPage = UnitActions.getActionDefaultPage(unit, unitAction.type)
@@ -120,7 +120,7 @@ class UnitActionsTable(val worldScreen: WorldScreen) : Table() {
                 button.isDisabled = false
                 button.touchable = Touchable.enabled
                 button.onRightClick {
-                    UnitUpgradeMenu(worldScreen.stage, button, unit, unitAction, enable = unitAction.action != null, callbackAfterAnimation = true) {
+                    UnitUpgradeMenu(worldScreen.stage, button, unit, unitAction, enable = unitAction.enabled(), callbackAfterAnimation = true) {
                         worldScreen.shouldUpdate = true
                     }
                 }
@@ -152,7 +152,7 @@ class UnitActionsTable(val worldScreen: WorldScreen) : Table() {
         for (page in pageActionBuckets.indices) {
             if (page == currentPage) continue // these are already done
             for (unitAction in pageActionBuckets[page]) {
-                if (unitAction.action == null) continue
+                if (!unitAction.visible()) continue
                 keyShortcuts.add(unitAction.type.binding) {
                     activateAction(unitAction, unit)
                 }
@@ -174,15 +174,15 @@ class UnitActionsTable(val worldScreen: WorldScreen) : Table() {
         val binding = unitAction.type.binding
 
         val fontColor = if (unitAction.isCurrentAction) Color.YELLOW else Color.WHITE
-        val actionButton = IconTextButton(unitAction.title, icon, fontColor = fontColor)
+        val actionButton = IconTextButton(unitAction.currentTitle, icon, fontColor = fontColor)
         actionButton.labelCell.padTop(0f) // aligned with icon 
 
-        if (unitAction.type == UnitActionType.Promote && unitAction.action != null)
+        if (unitAction.type == UnitActionType.Promote && unitAction.enabled())
             actionButton.color = Color.GREEN.brighten(0.5f)
 
         actionButton.pack()
 
-        if (unitAction.action == null) {
+        if (!unitAction.enabled()) {
             actionButton.disable()
         } else {
             actionButton.onActivation(unitAction.uncivSound, binding) {
@@ -194,7 +194,7 @@ class UnitActionsTable(val worldScreen: WorldScreen) : Table() {
     }
 
     private fun activateAction(unitAction: UnitAction, unit: MapUnit) {
-        unitAction.action!!.invoke()
+        unitAction.invoke()
         worldScreen.shouldUpdate = true
         // We keep the unit action/selection overlay from the previous unit open even when already selecting another unit
         // so you need less clicks/touches to do things, but once we do an action with the new unit, we want to close this

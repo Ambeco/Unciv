@@ -699,7 +699,7 @@ class Tile : IsPartOfGameInfoSerialization {
             8 -> hasBottomLeftRiver // we're to the top-right of it
             10 -> otherTile.hasBottomRightRiver // we're to the bottom-right of it
             12 -> otherTile.hasBottomRiver // we're directly below it
-            else -> throw Exception("Should never call this function on a non-neighbor!")
+            else -> throw Exception("${otherTile.position} is not a neighbor of $position")
         }
     }
 

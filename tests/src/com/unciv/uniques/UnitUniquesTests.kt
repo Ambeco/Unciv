@@ -45,8 +45,8 @@ class UnitUniquesTests {
         val greatPerson = game.addUnit("Great Scientist", mainCiv, unitTile)
 
         // then
-        val giftAction = UnitActions.getUnitActions(greatPerson, UnitActionType.GiftUnit)
-            .firstOrNull { it.action != null } // This tests that the action should be enabled, too
+        val giftAction = UnitActions.getUnitActions(greatPerson, UnitActionType.GiftUnit, listOf(greatPerson))
+            .firstOrNull { it.enabled() } // This tests that the action should be enabled, too
 
         Assert.assertNotNull("Great Person should have a gift action", giftAction)
     }
@@ -79,7 +79,7 @@ class UnitUniquesTests {
             Assert.fail("getImprovementConstructionActions throws Exception ${ex.javaClass.simpleName}")
             game.ruleset.tileImprovements["Manufactory"] = oldImprovement
             return
-        }.filter { it.action != null }
+        }.filter { it.enabled() }
         Assert.assertTrue("Great Engineer should NOT be able to create a Manufactory modded to require Iron with 0 Iron",
             actionsWithoutIron.none())
 
@@ -97,7 +97,7 @@ class UnitUniquesTests {
 
         // See if that same Engineer could create a Manufactory NOW
         val actionsWithIron = UnitActionsFromUniques.getImprovementConstructionActionsFromGeneralUnique(unit, unitTile)
-            .filter { it.action != null }
+            .filter { it.enabled() }
         Assert.assertFalse("Great Engineer SHOULD be able to create a Manufactory modded to require Iron once Iron is available",
             actionsWithIron.none())
         game.ruleset.tileImprovements["Manufactory"] = oldImprovement

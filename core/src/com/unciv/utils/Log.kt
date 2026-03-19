@@ -78,6 +78,7 @@ object Log {
      *
      * The [params] can contain value-producing lambdas, which will be called and their value used as parameter for the message instead.
      */
+    @Pure @Suppress("purity") // good suppression - log considered pure everywhere
     fun debug(tag: Tag, msg: String, vararg params: Any?) {
         if (!shouldLog(tag)) return
         val formatArgs = replaceLambdasWithValues(params)
@@ -91,6 +92,7 @@ object Log {
      *
      * A tag will be added equal to the name of the calling class.
      */
+    @Pure @Suppress("purity") // good suppression - log considered pure everywhere
     fun debug(msg: String, throwable: Throwable) {
         if (backend.isRelease()) return
         debug(getTag(), msg, throwable)
@@ -100,6 +102,7 @@ object Log {
      *
      * Only actually does something when logging is enabled.
      */
+    @Pure @Suppress("purity") // good suppression - log considered pure everywhere
     fun debug(tag: Tag, msg: String, throwable: Throwable) {
         if (!shouldLog(tag)) return
         doLog(backend::debug, tag, buildThrowableMessage(msg, throwable))
@@ -131,6 +134,7 @@ object Log {
      *
      * The [params] can contain value-producing lambdas, which will be called and their value used as parameter for the message instead.
      */
+    @Pure @Suppress("purity") // good suppression - log considered pure everywhere
     fun error(tag: Tag, msg: String, vararg params: Any?) {
         val formatArgs = replaceLambdasWithValues(params)
         doLog(backend::error, tag, msg, *formatArgs)
@@ -152,6 +156,7 @@ object Log {
      *
      * Always logs, even in release builds.
      */
+    @Pure @Suppress("purity") // good suppression - log considered pure everywhere
     fun error(tag: Tag, msg: String, throwable: Throwable) {
         doLog(backend::error, tag, buildThrowableMessage(msg, throwable))
     }
@@ -197,16 +202,19 @@ open class DefaultLogBackend : LogBackend {
 }
 
 /** Shortcut for [Log.debug] */
+@Pure @Suppress("purity") // good suppression - log considered pure everywhere
 fun debug(msg: String, vararg params: Any?) {
     Log.debug(msg, *params)
 }
 
 /** Shortcut for [Log.debug] */
+@Pure @Suppress("purity") // good suppression - log considered pure everywhere
 fun debug(tag: Tag, msg: String, vararg params: Any?) {
     Log.debug(tag, msg, *params)
 }
 
 /** Shortcut for [Log.debug] */
+@Pure @Suppress("purity") // good suppression - log considered pure everywhere
 fun debug(msg: String, throwable: Throwable) {
     Log.debug(msg, throwable)
 }

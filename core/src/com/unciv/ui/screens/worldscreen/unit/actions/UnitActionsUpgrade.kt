@@ -1,10 +1,12 @@
 package com.unciv.ui.screens.worldscreen.unit.actions
 
 import com.unciv.logic.map.mapunit.MapUnit
+import com.unciv.logic.map.tile.Tile
 import com.unciv.models.Counter
 import com.unciv.models.UnitAction
 import com.unciv.models.UpgradeUnitAction
-import com.unciv.models.ruleset.unique.Unique
+import com.unciv.models.ruleset.unique.GameContext
+import com.unciv.models.ruleset.unique.GameContext.Companion.IgnoreConditionals
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.translations.tr
 import com.unciv.ui.screens.worldscreen.unit.actions.UnitActionModifiers.getUseFrequency
@@ -18,20 +20,18 @@ object UnitActionsUpgrade {
         isSpecial: Boolean,
         isAnywhere: Boolean
     ) = sequence<UnitAction> {
-        val unitTile = unit.getTile()
         val civInfo = unit.civ
         val specialUpgradesTo = if (isSpecial) 
-                unit.baseUnit.getMatchingUniques(UniqueType.RuinsUpgrade, unit.cache.state).firstOrNull()
+                unit.baseUnit.getMatchingUniques(UniqueType.RuinsUpgrade, IgnoreConditionals).firstOrNull()
                     ?.let { Pair(it.params[0], it) }
             else null
         val baseUpgrade = unit.baseUnit.upgradesTo?.let { Pair(it, null) }
-        val uniqueUpgrades = unit.baseUnit.getMatchingUniques(UniqueType.CanUpgrade, unit.cache.state)
+        val uniqueUpgrades = unit.baseUnit.getMatchingUniques(UniqueType.CanUpgrade, IgnoreConditionals)
             .map { Pair(it.params[0], it)}
         val upgradeUnits = if (specialUpgradesTo != null) sequenceOf(specialUpgradesTo)
             else if (baseUpgrade != null) uniqueUpgrades + baseUpgrade
             else uniqueUpgrades
         if (upgradeUnits.none()) return@sequence // can't upgrade to anything
-        if (!isAnywhere && unitTile.getOwner() != civInfo) return@sequence
 
         for (upgradesTo in upgradeUnits){
             val upgradedUnit = civInfo.getEquivalentUnit(upgradesTo.first)
@@ -61,21 +61,25 @@ object UnitActionsUpgrade {
             val useFrequency = getUseFrequency(unit, upgradesTo.second, 120f)
 
             yield(UpgradeUnitAction(
-                title = title,
+                unit,
+                lazyTitle = { title },
                 unitToUpgradeTo = upgradedUnit,
                 goldCostOfUpgrade = goldCostOfUpgrade,
                 newResourceRequirements = resourceRequirementsDelta,
                 action = {
                     unit.upgrade.performUpgrade(upgradedUnit, isFree, goldCostOfUpgrade)
-                }.takeIf {
+                },
+                availableResources = {
                     isFree || (
                         unit.civ.gold >= goldCostOfUpgrade
                             && unit.hasMovement()
-                            && unitTile.getOwner() == civInfo
                             && !unit.isEmbarked()
                             && unit.upgrade.canUpgrade(unitToUpgradeTo = upgradedUnit)
                         )
-                },
+                 },
+                tileAvailable = {tile: Tile -> 
+                    (isAnywhere || tile.getOwner() == civInfo) 
+                        && (upgradesTo.second == null || upgradesTo.second!!.conditionalsApply(unit.cache.state.copy(tile = tile))) },
                 useFrequency = useFrequency,
             ))
         }

@@ -10,6 +10,7 @@ import com.unciv.logic.civilization.managers.ReligionState
 import com.unciv.models.ruleset.validation.ModCompatibility
 import com.unciv.models.stats.Stat
 import com.unciv.utils.hashOf
+import com.unciv.utils.Log
 import yairm210.purity.annotations.Readonly
 import kotlin.random.Random
 
@@ -390,6 +391,130 @@ object Conditionals {
             }
 
             else -> false
+        }
+    }
+
+    @Readonly
+    fun isTileDependent(conditional: Unique): Boolean {
+        return when (conditional.type) {
+            UniqueType.ConditionalChance -> false
+            UniqueType.ConditionalEveryTurns -> false
+            UniqueType.ConditionalBeforeTurns -> false
+            UniqueType.ConditionalAfterTurns -> false
+            UniqueType.ConditionalTutorialsEnabled -> false
+            UniqueType.ConditionalTutorialCompleted -> false
+
+            UniqueType.ConditionalCivFilter -> false
+            UniqueType.ConditionalWar -> false
+            UniqueType.ConditionalNotWar -> false
+            UniqueType.ConditionalWithResource -> false
+            UniqueType.ConditionalWithoutResource -> false
+
+            UniqueType.ConditionalWhenAboveAmountStatResource -> false
+            UniqueType.ConditionalWhenBelowAmountStatResource -> false
+            UniqueType.ConditionalWhenBetweenStatResource -> false
+
+            UniqueType.ConditionalHappy -> false
+            UniqueType.ConditionalGoldenAge -> false
+            UniqueType.ConditionalNotGoldenAge -> false
+
+            UniqueType.ConditionalBeforeEra -> false
+            UniqueType.ConditionalStartingFromEra -> false
+            UniqueType.ConditionalDuringEra -> false
+            UniqueType.ConditionalIfStartingInEra -> false
+            UniqueType.ConditionalSpeed -> false
+            UniqueType.ConditionalDifficulty -> false
+            UniqueType.ConditionalDifficultyOrHigher -> false
+            UniqueType.ConditionalDifficultyOrLower -> false
+            UniqueType.ConditionalVictoryEnabled ->  false
+            UniqueType.ConditionalVictoryDisabled ->  false
+            UniqueType.ConditionalReligionEnabled ->  false
+            UniqueType.ConditionalReligionDisabled ->  false
+            UniqueType.ConditionalEspionageEnabled ->  false
+            UniqueType.ConditionalEspionageDisabled ->  false
+            UniqueType.ConditionalNuclearWeaponsEnabled ->  false
+            UniqueType.ConditionalNuclearWeaponsDisabled ->  false
+            UniqueType.ConditionalTech -> false
+            UniqueType.ConditionalNoTech -> false
+            UniqueType.ConditionalWhileResearching -> false
+            UniqueType.ConditionalNoCivAdopted -> false
+            UniqueType.ConditionalAfterPolicyOrBelief -> false
+            UniqueType.ConditionalBeforePolicyOrBelief -> false
+            UniqueType.ConditionalBeforePantheon -> false
+            UniqueType.ConditionalAfterPantheon -> false
+            UniqueType.ConditionalBeforeReligion -> false
+            UniqueType.ConditionalAfterReligion -> false
+            UniqueType.ConditionalBeforeEnhancingReligion -> false
+            UniqueType.ConditionalAfterEnhancingReligion -> false
+            UniqueType.ConditionalAfterGeneratingGreatProphet -> false
+
+            UniqueType.ConditionalBuildingBuilt -> false
+            UniqueType.ConditionalBuildingNotBuilt -> false
+            UniqueType.ConditionalBuildingBuiltAll -> false
+            UniqueType.ConditionalBuildingBuiltAmount -> false
+            UniqueType.ConditionalBuildingBuiltByAnybody -> false
+            UniqueType.ConditionalBuildingNotBuiltByAnybody -> false
+
+            // Filtered via city.getMatchingUniques
+            UniqueType.ConditionalInThisCity -> true
+            UniqueType.ConditionalCityFilter -> true
+            UniqueType.ConditionalCityConnected -> true
+            UniqueType.ConditionalCityReligion -> true
+            UniqueType.ConditionalCityNotReligion -> true
+            UniqueType.ConditionalCityMajorReligion -> true
+            UniqueType.ConditionalCityEnhancedReligion -> true
+            UniqueType.ConditionalCityThisReligion -> true
+            UniqueType.ConditionalWLTKD -> true
+            UniqueType.ConditionalCityWithBuilding -> true
+            UniqueType.ConditionalCityWithoutBuilding -> true
+            UniqueType.ConditionalPopulationFilter -> true
+            UniqueType.ConditionalExactPopulationFilter -> true
+            UniqueType.ConditionalBetweenPopulationFilter -> true
+            UniqueType.ConditionalBelowPopulationFilter -> true
+            UniqueType.ConditionalWhenGarrisoned -> true
+
+            UniqueType.ConditionalVsCity -> false
+            UniqueType.ConditionalVsUnits,  UniqueType.ConditionalVsCombatant -> false
+            UniqueType.ConditionalOurUnit, UniqueType.ConditionalOurUnitOnUnit -> true
+            UniqueType.ConditionalUnitWithPromotion -> false
+            UniqueType.ConditionalUnitWithoutPromotion -> false
+            UniqueType.ConditionalAttacking -> false
+            UniqueType.ConditionalDefending -> false
+            UniqueType.ConditionalAboveHP -> false
+            UniqueType.ConditionalBelowHP -> false
+            UniqueType.ConditionalHasNotUsedOtherActions -> true
+            UniqueType.ConditionalStackedWithUnit -> true
+            UniqueType.ConditionalNotStackedWithUnit -> true
+
+            UniqueType.ConditionalInTiles -> true
+            UniqueType.ConditionalInTilesNot ->true
+            UniqueType.ConditionalAdjacentTo ->  true
+            UniqueType.ConditionalNotAdjacentTo -> true
+            UniqueType.ConditionalFightingInTiles -> true
+            UniqueType.ConditionalNearTiles -> true
+
+            UniqueType.ConditionalVsLargerCiv -> false
+            UniqueType.ConditionalForeignContinent -> true
+            UniqueType.ConditionalAdjacentUnit -> true
+
+            UniqueType.ConditionalNeighborTiles -> true
+            UniqueType.ConditionalOnWaterMaps -> false
+            UniqueType.ConditionalInRegionOfType -> true
+            UniqueType.ConditionalInRegionExceptOfType -> true
+
+            UniqueType.ConditionalFirstCivToResearch -> false
+            UniqueType.ConditionalFirstCivToAdopt -> false
+
+            UniqueType.ConditionalCountableEqualTo -> true
+            UniqueType.ConditionalCountableDifferentThan -> true
+            UniqueType.ConditionalCountableMoreThan -> true
+            UniqueType.ConditionalCountableLessThan -> true
+            UniqueType.ConditionalCountableBetween -> true
+            UniqueType.ConditionalWhenCarriedBy -> false
+
+            UniqueType.ConditionalModEnabled ->  false
+            UniqueType.ConditionalModNotEnabled ->  false
+            else ->  false
         }
     }
 }

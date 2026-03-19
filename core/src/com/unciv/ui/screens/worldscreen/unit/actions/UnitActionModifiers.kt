@@ -21,7 +21,7 @@ object UnitActionModifiers {
 
     @Readonly
     fun getUsableUnitActionUniques(unit: MapUnit, actionUniqueType: UniqueType) =
-        unit.getMatchingUniques(actionUniqueType)
+        unit.getMatchingUniquesIgnoringConditionals(actionUniqueType)
             .filter { unique -> !unique.hasModifier(UniqueType.UnitActionExtraLimitedTimes) }
             .filter { canUse(unit, it) }
 

@@ -107,13 +107,13 @@ class UpgradeTests {
         val unit1 = testGame.addUnit(testUnit.name, civ, testGame.getTile(HexCoord.Zero))
         var upgradeActions = UnitActionsUpgrade.getUpgradeActionAnywhere(unit1)
 
-        Assert.assertTrue("We should need gold to upgrade here", upgradeActions.all { it.action == null })
+        Assert.assertTrue("We should need gold to upgrade here", upgradeActions.all { !it.enabled() })
 
         civ.addGold(unit1.upgrade.getCostOfUpgrade(unitToUpgradeTo))
 
         upgradeActions = UnitActionsUpgrade.getUpgradeActionAnywhere(unit1)
 
         Assert.assertEquals(1, upgradeActions.count())
-        Assert.assertTrue(upgradeActions.none { it.action == null })
+        Assert.assertTrue(upgradeActions.none { !it.enabled() })
     }
 }
