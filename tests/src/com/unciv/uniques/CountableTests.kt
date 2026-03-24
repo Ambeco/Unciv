@@ -377,10 +377,13 @@ class CountableTests {
 
         // Expect: (1 Palace + 1 Base Ancestor Tree + 2 for-every) * 1.5 = 6
         val capitalCulture = city.cityStats.currentCityStats.culture
-        // Expect: capitalCulture + (1 Base Ancestor Tree + 2 for-every) * 1.5 = 10.5
+        // Expect: (1 Base Ancestor Tree + 2 for-every) * 1.5 = 4.5
+        val city2Culture = city2.cityStats.currentCityStats.culture
+        // Expect: capitalCulture + city2Culture = 10.5
         val civCulture = civ.stats.statsForNextTurn.culture
 
         assertEquals(6f, capitalCulture, 0.005f)
+        assertEquals(4.5f, city2Culture, 0.005f)
         assertEquals(10.5f, civCulture, 0.005f)
 
         // FilteredBuildingsByCivs
