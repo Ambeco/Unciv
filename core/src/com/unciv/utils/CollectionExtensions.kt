@@ -175,3 +175,29 @@ inline fun <T> GdxLongArray.fold(initial: T, op: (T, Long) -> T): T {
     }
     return r
 }
+// same as Kotlin's Iterable.first, but without allocating an iterator
+@Readonly
+inline fun <T> List<T>.firstOrNull(predicate: (T) -> Boolean): T? {
+    for (i in 0..<size) {
+        val e = get(i)
+        if (predicate(e)) return e
+    }
+    return null
+}
+
+@Readonly
+inline fun <T> List<T>.first(predicate: (T) -> Boolean): T 
+    = firstOrNull(predicate) ?: throw NoSuchElementException("Collection contains no element matching the predicate.")
+
+@Readonly
+inline fun <T, R : Any> List<T>.firstNotNullOfOrNull(transform: (T) -> R?): R? {
+    for (i in 0..<size) {
+        val e = transform(get(i))
+        return e ?: continue
+    }
+    return null
+}
+
+@Readonly
+inline fun <T, R : Any> List<T>.firstNotNullOf(transform: (T) -> R?): R
+    = firstNotNullOfOrNull(transform) ?: throw NoSuchElementException("No element of the collection was transformed to a non-null value.")

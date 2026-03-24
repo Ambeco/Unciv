@@ -2,6 +2,7 @@
 
 import com.unciv.Constants
 import com.unciv.GUI
+import com.unciv.utils.firstOrNull
 import com.unciv.UncivGame
 import com.unciv.logic.IsPartOfGameInfoSerialization
 import com.unciv.logic.MultiFilter

@@ -177,9 +177,9 @@ object Automation {
         }
 
         // Apply City focus
-        for (stat in cityAIFocus.statValuesForFocus) {
+        cityAIFocus.statValuesForFocus.forEach { stat ->
             val currentStat = yieldStats[stat]
-            if (currentStat == 0f) continue
+            if (currentStat == 0f) return@forEach
             val statMultiplier = cityAIFocus.getStatMultiplier(stat)
             yieldStats[stat] = currentStat * statMultiplier
         }

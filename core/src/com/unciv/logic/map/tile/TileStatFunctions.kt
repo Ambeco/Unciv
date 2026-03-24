@@ -17,10 +17,12 @@ import yairm210.purity.annotations.Readonly
 import java.util.EnumMap
 
 @Readonly
-fun List<Pair<String, Stats>>.toStats(): Stats {
+@Suppress("NOTHING_TO_INLINE")
+// inline helps JRE realize it doesn't need to allocate the Stats
+inline fun List<Pair<String, Stats>>.toStats(): Stats {
     val stats = Stats()
-    for ((_, statsToAdd) in this)
-        stats.add(statsToAdd)
+    for (i in 0..<size)
+        stats.add(get(i).second)
     return stats
 }
 
@@ -124,7 +126,7 @@ class TileStatFunctions(val tile: Tile) {
         listOfStats.add("Minimum" to statsFromMinimum)
 
         if (observingCiv != null &&
-            listOfStats.toStats().gold != 0f && observingCiv.goldenAges.isGoldenAge())
+            listOfStats.sumOf { it.second.gold.toDouble() } != 0.0 && observingCiv.goldenAges.isGoldenAge())
             listOfStats.add("Golden Age" to Stats(gold = 1f))
 
         // To ensure that the original stats (in uniques, terrains, etc) are not modified in getTileStats, we clone them all
