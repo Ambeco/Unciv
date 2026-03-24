@@ -46,6 +46,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import com.unciv.logic.automation.Timers.Companion.timeThis
+import com.unciv.utils.listSequence
 
 enum class Proximity : IsPartOfGameInfoSerialization {
     None, // ie no cities
@@ -571,7 +572,7 @@ class Civilization : IsPartOfGameInfoSerialization {
     fun getMatchingUniques(
         uniqueType: UniqueType,
         gameContext: GameContext = state
-    ): Sequence<Unique> = sequence {
+    ): Sequence<Unique> = listSequence {
         yieldAll(nation.getMatchingUniques(uniqueType, gameContext))
         yieldAll(cities.asSequence()
             .flatMap { city -> city.getMatchingUniquesWithNonLocalEffects(uniqueType, gameContext) }
@@ -593,7 +594,7 @@ class Civilization : IsPartOfGameInfoSerialization {
         trigger: UniqueType,
         gameContext: GameContext = state,
         triggerFilter: (Unique) -> Boolean = { true }
-    ) : Sequence<Unique> = sequence {
+    ) : Sequence<Unique> = listSequence {
         // Gathering all uniques into a list first since triggers can add e.g. buildings 
         // which contain triggers, causing concurrent modification errors.
         // Cannont use getTriggeredUniques from uniqueMaps since we don't want to check conditionals yet
@@ -615,7 +616,7 @@ class Civilization : IsPartOfGameInfoSerialization {
         gameContext: GameContext = state,
         triggerFilter: (Unique) -> Boolean = { true },
         ignoreCities: Boolean = false
-    ) : Sequence<Unique> = sequence {
+    ) : Sequence<Unique> = listSequence {
         // Gathering all uniques into a list first since triggers can add e.g. buildings 
         // which contain triggers, causing concurrent modification errors.
         // Cannont use getTriggeredUniques from uniqueMaps since we don't want to check conditionals yet

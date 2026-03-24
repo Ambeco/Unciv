@@ -28,6 +28,7 @@ import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.ui.components.fonts.Fonts
 import com.unciv.utils.DebugUtils
 import com.unciv.utils.Log
+import com.unciv.utils.listSequence
 import com.unciv.utils.withItem
 import com.unciv.utils.withoutItem
 import yairm210.purity.annotations.Cache
@@ -274,7 +275,7 @@ class Tile : IsPartOfGameInfoSerialization {
         if (militaryUnit == null && civilianUnit == null && airUnits.isEmpty())
             return emptySequence()
         
-        return sequence {
+        return listSequence {
             if (militaryUnit != null) yield(militaryUnit!!)
             if (civilianUnit != null) yield(civilianUnit!!)
             if (airUnits.isNotEmpty()) yieldAll(airUnits)
@@ -935,11 +936,11 @@ class Tile : IsPartOfGameInfoSerialization {
     fun setTerrainFeatures(terrainFeatureList: List<String>) {
         terrainFeatures = terrainFeatureList
         terrainFeatureObjects = terrainFeatureList.mapNotNull { ruleset.terrains[it] }
-        allTerrains = sequence {
+        allTerrains = listSequence {
             yield(baseTerrainObject) // There is an assumption here that base terrains do not change
             if (naturalWonder != null) yield(getNaturalWonder())
             yieldAll(terrainFeatureObjects)
-        }.toList().asSequence() //Save in memory, and return as sequence
+        }
 
         updateUniqueMap()
 

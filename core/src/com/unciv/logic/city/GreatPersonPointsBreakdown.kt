@@ -5,6 +5,7 @@ import com.unciv.models.Counter
 import com.unciv.models.ruleset.Ruleset
 import com.unciv.models.ruleset.unique.Unique
 import com.unciv.models.ruleset.unique.UniqueType
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.Pure
 import yairm210.purity.annotations.Readonly
 
@@ -54,7 +55,7 @@ class GreatPersonPointsBreakdown private constructor(private val ruleset: Rulese
          *  and exposed to autoAssignPopulation via [getGreatPersonPercentageBonus]
          */
         @Readonly
-        private fun getPercentagesApplyingToAllGP(city: City) = sequence {
+        private fun getPercentagesApplyingToAllGP(city: City) = listSequence {
             // Now add boni for GreatPersonPointPercentage
             for (unique in city.getMatchingUniques(UniqueType.GreatPersonPointPercentage)) {
                 if (!city.matchesFilter(unique.params[1])) continue

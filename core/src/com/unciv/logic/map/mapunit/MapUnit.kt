@@ -30,6 +30,7 @@ import java.text.DecimalFormat
 import kotlin.math.pow
 import kotlin.math.ulp
 import com.unciv.logic.automation.Timers.Companion.timeThis
+import com.unciv.utils.listSequence
 
 
 /**
@@ -314,7 +315,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
         uniqueType: UniqueType,
         gameContext: GameContext = cache.state,
         checkCivInfoUniques: Boolean = false
-    ) = sequence {
+    ) = listSequence {
         yieldAll(
                 tempUniquesMap.getMatchingUniques(uniqueType, gameContext)
         )

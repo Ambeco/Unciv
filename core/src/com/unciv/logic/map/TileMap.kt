@@ -19,6 +19,7 @@ import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.ruleset.unit.BaseUnit
 import com.unciv.utils.addToMapOfSets
 import com.unciv.utils.contains
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.Readonly
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
@@ -247,7 +248,7 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
             if (distance <= 0) // silently take negatives.
                 sequenceOf(get(origin))
             else
-                sequence {
+                listSequence {
                     val centerX = origin.x
                     val centerY = origin.y
 
@@ -278,7 +279,7 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
 
     /** @return all tiles within [rectangle], respecting world edges and wrap.
      *  The rectangle will be "straight" ie parallel with rectangular map edges. */
-    fun getTilesInRectangle(rectangle: Rectangle) = sequence {
+    fun getTilesInRectangle(rectangle: Rectangle) = listSequence {
             val x = rectangle.x.toInt()
             val y = rectangle.y.toInt()
             for (worldColumnNumber in x until x + rectangle.width.toInt()) {

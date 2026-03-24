@@ -6,6 +6,7 @@ import com.unciv.models.ruleset.unique.UniqueTriggerActivation
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.ruleset.unit.Promotion
 import com.unciv.ui.components.extensions.toPercent
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.LocalState
 import yairm210.purity.annotations.Readonly
 
@@ -35,8 +36,8 @@ class UnitPromotions : IsPartOfGameInfoSerialization {
      *  @return a Sequence of this unit's promotions
      */
     @Readonly
-    fun getPromotions(sorted: Boolean = false): Sequence<Promotion> = sequence {
-        if (promotions.isEmpty()) return@sequence
+    fun getPromotions(sorted: Boolean = false): Sequence<Promotion> = listSequence {
+        if (promotions.isEmpty()) return@listSequence
         val unitPromotions = unit.civ.gameInfo.ruleset.unitPromotions
         if (sorted && promotions.size > 1) {
             for (promotion in unitPromotions.values)

@@ -24,7 +24,7 @@ import com.unciv.ui.components.extensions.getNeedMoreAmountString
 import com.unciv.ui.components.extensions.toPercent
 import com.unciv.ui.objectdescriptions.BaseUnitDescriptions
 import com.unciv.ui.screens.civilopediascreen.FormattedLine
-import com.unciv.utils.yieldIfNotNull
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.Cache
 import yairm210.purity.annotations.LocalState
 import yairm210.purity.annotations.Readonly
@@ -111,7 +111,7 @@ class BaseUnit : RulesetObject(), INonPerpetualConstruction {
 
     @Readonly
     fun getUpgradeUnits(gameContext: GameContext = GameContext.EmptyState): Sequence<String> {
-        return sequence {
+        return listSequence {
             yieldIfNotNull(upgradesTo)
             for (unique in getMatchingUniques(UniqueType.CanUpgrade, gameContext))
                 yield(unique.params[0])
@@ -120,7 +120,7 @@ class BaseUnit : RulesetObject(), INonPerpetualConstruction {
 
     @Readonly
     fun getRulesetUpgradeUnits(gameContext: GameContext = GameContext.EmptyState): Sequence<BaseUnit> {
-        return sequence {
+        return listSequence {
             for (unit in getUpgradeUnits(gameContext))
                 yieldIfNotNull(ruleset.units[unit])
         }
@@ -217,7 +217,7 @@ class BaseUnit : RulesetObject(), INonPerpetualConstruction {
         civ: Civilization,
         city: City? = null,
         additionalResources: Counter<String> = Counter.ZERO
-    ): Sequence<RejectionReason> = sequence {
+    ): Sequence<RejectionReason> = listSequence {
 
         val stateForConditionals = city?.state ?: civ.state
 
@@ -307,7 +307,7 @@ class BaseUnit : RulesetObject(), INonPerpetualConstruction {
      * [UniqueType.ConditionalBuildingBuiltAll]
      */
     @Readonly
-    private fun notMetRejections(unique: Unique, civ: Civilization, city: City?, built: Boolean=false): Sequence<RejectionReason> = sequence {
+    private fun notMetRejections(unique: Unique, civ: Civilization, city: City?, built: Boolean=false): Sequence<RejectionReason> = listSequence {
         for (conditional in unique.modifiers) {
             // We yield a rejection only when conditionals are NOT met
             if (Conditionals.conditionalApplies(unique, conditional, city?.state ?: civ.state))

@@ -5,6 +5,7 @@ import com.unciv.logic.civilization.Civilization
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.stats.Stat
 import com.unciv.ui.components.extensions.toPercent
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.Readonly
 
 class BaseUnitCost(val baseUnit: BaseUnit) {
@@ -94,7 +95,7 @@ class BaseUnitCost(val baseUnit: BaseUnit) {
     @Readonly
     fun getBaseBuyCosts(city: City, stat: Stat): Sequence<Float> {
         val conditionalState = city.state
-        return sequence {
+        return listSequence {
             yieldAll(city.getMatchingUniques(UniqueType.BuyUnitsIncreasingCost, conditionalState)
                 .filter {
                     it.params[2] == stat.name

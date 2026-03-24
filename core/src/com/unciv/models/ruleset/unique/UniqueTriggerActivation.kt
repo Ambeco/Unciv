@@ -29,6 +29,7 @@ import com.unciv.models.translations.tr
 import com.unciv.ui.audio.SoundPlayer
 import com.unciv.ui.screens.worldscreen.unit.actions.UnitActionsUpgrade
 import com.unciv.utils.addToMapOfSets
+import com.unciv.utils.listSequence
 import com.unciv.utils.randomWeighted
 import yairm210.purity.annotations.Readonly
 import kotlin.math.roundToInt
@@ -364,7 +365,7 @@ object UniqueTriggerActivation {
                             else notification
                         civInfo.addNotification(
                             notificationText,
-                            sequence {
+                            listSequence {
                                 yield(MapUnitAction(placedUnit))
                                 yieldAll(LocationAction(tile?.position))
                             },

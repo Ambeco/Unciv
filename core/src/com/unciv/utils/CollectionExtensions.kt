@@ -1,11 +1,19 @@
+@file:OptIn(ExperimentalContracts::class, ExperimentalContracts::class)
+
 package com.unciv.utils
 
 import com.badlogic.gdx.utils.Array
+import yairm210.purity.annotations.Cache
+import yairm210.purity.annotations.InternalState
+import yairm210.purity.annotations.LocalState
 import com.badlogic.gdx.utils.IntArray as GdxIntArray
 import com.badlogic.gdx.utils.LongArray as GdxLongArray
 import yairm210.purity.annotations.Pure
 import yairm210.purity.annotations.Readonly
 import java.util.BitSet
+import kotlin.collections.addAll
+import kotlin.contracts.ExperimentalContracts
+import kotlin.experimental.ExperimentalTypeInference
 import kotlin.random.Random
 
 /** Get one random element of a given List.
@@ -92,17 +100,31 @@ fun <T> Sequence<T>.toGdxArray(): Array<T> {
     return arr
 }
 
-/** [yield][SequenceScope.yield]s [element] if it's not null */
+// `kotlin.sequence.sequence` method creates a coroutine, which takes a ton of memory.
+// These are *mostly* drop-in replacements that build a list instead.
+// The only real downside is that this allocates the whole list, so can't handle infinite lists,
+// and wastes memory for very large lists.
+@OptIn(ExperimentalTypeInference::class)
 @Pure
-suspend fun <T> SequenceScope<T>.yieldIfNotNull(element: T?) {
-    if (element != null) yield(element)
+@Suppress("NOTHING_TO_INLINE")
+inline fun <E> listSequence(builderAction: ListSequence<E>.()->Unit): Sequence<E> {
+    @LocalState val sequence = ListSequence<E>()
+    sequence.builderAction()
+    return sequence.asSequence()
 }
-/** [yield][SequenceScope.yield]s all elements of [elements] if it's not null */
-@Pure
-suspend fun <T> SequenceScope<T>.yieldAllNotNull(elements: Iterable<T>?) {
-    if (elements != null) yieldAll(elements)
+// Suppressed purity because this is always LocalState but Kotlin can't annotate receiver parameters themselves
+class ListSequence<E>: ArrayList<E>() {
+    @Suppress("NOTHING_TO_INLINE", "purity")
+    @Readonly inline fun yield(value: E) = add(value)
+    @Suppress("NOTHING_TO_INLINE", "purity")
+    @Readonly inline fun yieldIfNotNull(value: E?) = if (value != null) add(value) else {}
+    @Suppress("NOTHING_TO_INLINE", "purity")
+    @Readonly inline fun yieldAll(value: Iterable<E>) = addAll(value)
+    @Suppress("NOTHING_TO_INLINE", "purity")
+    @Readonly inline fun yieldAll(value: Sequence<E>) = addAll(value)
+    @Suppress("NOTHING_TO_INLINE", "purity")
+    @Readonly inline fun yieldAllNotNull(value: Iterable<E>?) = if (value != null) addAll(value) else {}
 }
-
 /**
  *  Simplifies adding to a map of sets where the map entry where the new element belongs is not
  *  guaranteed to be already present in the map (sparse map).

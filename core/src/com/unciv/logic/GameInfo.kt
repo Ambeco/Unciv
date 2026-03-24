@@ -30,7 +30,6 @@ import com.unciv.models.ruleset.RulesetCache
 import com.unciv.models.ruleset.Speed
 import com.unciv.models.ruleset.nation.Difficulty
 import com.unciv.models.ruleset.tile.TileResource
-import com.unciv.models.ruleset.unique.LocalUniqueCache
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.translations.tr
 import com.unciv.ui.audio.MusicMood
@@ -792,11 +791,10 @@ class GameInfo : IsPartOfGameInfoSerialization, HasGameInfoSerializationVersion 
             civInfo.cache.updateCitiesConnectedToCapital(true)
 
             // We need to determine the GLOBAL happiness state in order to determine the city stats
-            val localUniqueCache = LocalUniqueCache()
             for (city in civInfo.cities) {
-                city.cityStats.updateTileStats(localUniqueCache) // Some nat wonders can give happiness!
+                city.cityStats.updateTileStats() // Some nat wonders can give happiness!
                 city.cityStats.updateCityHappiness(
-                    city.cityConstructions.getStats(localUniqueCache)
+                    city.cityConstructions.getStats()
                 )
             }
 
@@ -814,7 +812,7 @@ class GameInfo : IsPartOfGameInfoSerialization, HasGameInfoSerializationVersion 
                     city.demandedResource = ""
 
                 // No uniques have changed since the cache was created, so we can still use it
-                city.cityStats.update(localUniqueCache=localUniqueCache)
+                city.cityStats.update()
             }
         }
     }

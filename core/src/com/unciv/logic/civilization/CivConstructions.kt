@@ -11,7 +11,7 @@ import com.unciv.models.ruleset.unit.BaseUnit
 import com.unciv.models.stats.Stat
 import com.unciv.utils.addToMapOfSets
 import com.unciv.utils.contains
-import com.unciv.utils.yieldAllNotNull
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.Readonly
 
 class CivConstructions : IsPartOfGameInfoSerialization {
@@ -78,7 +78,7 @@ class CivConstructions : IsPartOfGameInfoSerialization {
      *  When/if we do a transient cache for these using our objects, please rewrite this.
      */
     @Readonly
-    private fun getFreeBuildingNamesSequence(cityId: String) = sequence {
+    private fun getFreeBuildingNamesSequence(cityId: String) = listSequence {
         yieldAllNotNull(freeBuildings[cityId])
         for (city in civInfo.cities) {
             yieldAllNotNull(city.cityConstructions.freeBuildingsProvidedFromThisCity[cityId])

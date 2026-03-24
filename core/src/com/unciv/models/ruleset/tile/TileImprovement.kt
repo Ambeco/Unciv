@@ -14,6 +14,7 @@ import com.unciv.models.ruleset.unit.BaseUnit
 import com.unciv.ui.components.extensions.toPercent
 import com.unciv.ui.objectdescriptions.ImprovementDescriptions
 import com.unciv.ui.screens.civilopediascreen.FormattedLine
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.LocalState
 import yairm210.purity.annotations.Readonly
 import kotlin.math.roundToInt
@@ -134,7 +135,7 @@ class TileImprovement : RulesetStatsObject() {
         val cannotFilters = getMatchingUniques(UniqueType.CannotBuildOnTile).map { it.params[0] }.toSet()
         val resourcesImprovedByThis = ruleset.tileResources.values.filter { it.isImprovedBy(name) }
 
-        @LocalState val expandedTerrainsCanBeBuiltOn = sequence {
+        @LocalState val expandedTerrainsCanBeBuiltOn = listSequence {
             yieldAll(terrainsCanBeBuiltOn)
             yieldAll(terrainsCanBeBuiltOn.asSequence().mapNotNull { ruleset.terrains[it] }.flatMap { it.occursOn.asSequence() })
             if (hasUnique(UniqueType.CanOnlyImproveResource))

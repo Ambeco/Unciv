@@ -1,11 +1,13 @@
 package com.unciv.uniques
 
 import com.unciv.Constants
+import com.unciv.UncivGame
 import com.unciv.logic.map.HexCoord
 import com.unciv.models.UnitActionType
 import com.unciv.testing.GdxTestRunner
 import com.unciv.testing.TestGame
 import com.unciv.ui.screens.worldscreen.unit.actions.UnitActions
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test

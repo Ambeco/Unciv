@@ -11,12 +11,13 @@ import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.translations.tr
 import com.unciv.ui.components.extensions.toPercent
 import com.unciv.ui.screens.worldscreen.unit.actions.UnitActionModifiers.getUseFrequency
+import com.unciv.utils.listSequence
 import kotlin.math.min
 
 @Suppress("UNUSED_PARAMETER") // references need to have the signature expected by UnitActions.actionTypeToFunctions
 object UnitActionsGreatPerson {
 
-    internal fun getHurryResearchActions(unit: MapUnit, tile: Tile) = sequence {
+    internal fun getHurryResearchActions(unit: MapUnit, tile: Tile) = listSequence {
         for (unique in unit.getMatchingUniques(UniqueType.CanHurryResearch)){
             val useFrequency = getUseFrequency(unit, unique, 76f)
             yield(UnitAction(
@@ -33,7 +34,7 @@ object UnitActionsGreatPerson {
         }
     }
 
-    internal fun getHurryPolicyActions(unit: MapUnit, tile: Tile) = sequence {
+    internal fun getHurryPolicyActions(unit: MapUnit, tile: Tile) = listSequence {
         for (unique in unit.getMatchingUniques(UniqueType.CanHurryPolicy)){
             val useFrequency = getUseFrequency(unit, unique, 76f)
             yield(UnitAction(
@@ -46,7 +47,7 @@ object UnitActionsGreatPerson {
         }
     }
 
-    internal fun getHurryWonderActions(unit: MapUnit, tile: Tile) = sequence {
+    internal fun getHurryWonderActions(unit: MapUnit, tile: Tile) = listSequence {
         for (unique in unit.getMatchingUniques(UniqueType.CanSpeedupWonderConstruction)) {
             val canHurryWonder =
                 if (!tile.isCityCenter()) false
@@ -69,7 +70,7 @@ object UnitActionsGreatPerson {
         }
     }
 
-    internal fun getHurryBuildingActions(unit: MapUnit, tile: Tile) = sequence {
+    internal fun getHurryBuildingActions(unit: MapUnit, tile: Tile) = listSequence {
         for (unique in unit.getMatchingUniques(UniqueType.CanSpeedupConstruction)) {
             val useFrequency = getUseFrequency(unit, unique, 75f)
             if (!tile.isCityCenter()) {
@@ -103,7 +104,7 @@ object UnitActionsGreatPerson {
         }
     }
 
-    internal fun getConductTradeMissionActions(unit: MapUnit, tile: Tile) = sequence {
+    internal fun getConductTradeMissionActions(unit: MapUnit, tile: Tile) = listSequence {
         val canConductTradeMission = tile.owningCity?.civ?.isCityState == true
             && tile.owningCity?.civ != unit.civ
             && tile.owningCity?.civ?.isAtWarWith(unit.civ) == false

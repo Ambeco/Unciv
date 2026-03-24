@@ -27,6 +27,7 @@ import com.unciv.ui.components.fonts.Fonts
 import com.unciv.ui.popups.ConfirmPopup
 import com.unciv.ui.screens.pickerscreens.ImprovementPickerScreen
 import com.unciv.ui.screens.worldscreen.unit.actions.UnitActionModifiers.getUseFrequency
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.Readonly
 
 @Suppress("UNUSED_PARAMETER") // These methods are used as references in UnitActions.actionTypeToFunctions and need identical signature
@@ -217,7 +218,7 @@ object UnitActionsFromUniques {
         )
     }
 
-    internal fun getTriggerUniqueActions(unit: MapUnit, tile: Tile) = sequence {
+    internal fun getTriggerUniqueActions(unit: MapUnit, tile: Tile) = listSequence {
         for (unique in unit.getUniques()) {
             // not a unit action
             if (unique.modifiers.none { it.type?.targetTypes?.contains(UniqueTarget.UnitActionModifier) == true }) continue
@@ -298,7 +299,7 @@ object UnitActionsFromUniques {
         ))
     }
 
-    internal fun getImprovementCreationActions(unit: MapUnit, tile: Tile) = sequence {
+    internal fun getImprovementCreationActions(unit: MapUnit, tile: Tile) = listSequence {
         val waterImprovementAction = getWaterImprovementAction(unit, tile)
         if (waterImprovementAction != null) yield(waterImprovementAction)
         yieldAll(getImprovementConstructionActionsFromGeneralUnique(unit, tile))
@@ -320,7 +321,7 @@ object UnitActionsFromUniques {
     }
 
     // Not internal: Used in SpecificUnitAutomation
-    fun getImprovementConstructionActionsFromGeneralUnique(unit: MapUnit, tile: Tile) = sequence {
+    fun getImprovementConstructionActionsFromGeneralUnique(unit: MapUnit, tile: Tile) = listSequence {
         val uniquesToCheck = UnitActionModifiers.getUsableUnitActionUniques(unit, UniqueType.ConstructImprovementInstantly)
 
         val civResources = unit.civ.getCivResourcesByName()
@@ -369,10 +370,10 @@ object UnitActionsFromUniques {
         }
     }
 
-    internal fun getConnectRoadActions(unit: MapUnit, tile: Tile) = sequence {
-        if (!unit.hasUnique(UniqueType.BuildImprovements)) return@sequence
+    internal fun getConnectRoadActions(unit: MapUnit, tile: Tile) = listSequence {
+        if (!unit.hasUnique(UniqueType.BuildImprovements)) return@listSequence
         val unitCivBestRoad = unit.civ.tech.getBestRoadAvailable()
-        if (unitCivBestRoad == RoadStatus.None) return@sequence
+        if (unitCivBestRoad == RoadStatus.None) return@listSequence
 
         val uniquesToCheck = UnitActionModifiers.getUsableUnitActionUniques(unit, UniqueType.BuildImprovements)
 
@@ -383,7 +384,7 @@ object UnitActionsFromUniques {
                 || (it.params[0] == "Railroad" && (unitCivBestRoad == RoadStatus.Railroad))
         }
 
-        if(unique == null) return@sequence
+        if(unique == null) return@listSequence
         val useFrequency = getUseFrequency(unit, unique, 25f)
 
         val worldScreen = GUI.getWorldScreen()
@@ -398,7 +399,7 @@ object UnitActionsFromUniques {
         )
     }
 
-    internal fun getTransformActions(unit: MapUnit, tile: Tile) = sequence {
+    internal fun getTransformActions(unit: MapUnit, tile: Tile) = listSequence {
         val unitTile = unit.getTile()
         val civInfo = unit.civ
         val stateForConditionals = unit.cache.state

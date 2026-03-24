@@ -1,6 +1,7 @@
 package com.unciv.models.stats
 
 import com.unciv.models.translations.tr
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.*
 
 /**
@@ -211,7 +212,7 @@ open class Stats(
      * Explicit use unnecessary - [Stats] is [iterable][Iterable] directly.
      * @see iterator */
     @Readonly
-    fun asSequence() = sequence {
+    fun asSequence() = listSequence {
         if (production != 0f) yield(StatValuePair(Stat.Production, production))
         if (food != 0f) yield(StatValuePair(Stat.Food, food))
         if (gold != 0f) yield(StatValuePair(Stat.Gold, gold))
@@ -225,7 +226,7 @@ open class Stats(
     // Property syntax to emulate Map.values pattern
     // Doesn't skip zero values as it's meant for sum() or max() where the overhead would be higher than any gain
     val values
-        get() = sequence {
+        get() = listSequence {
             yield(production)
             yield(food)
             yield(gold)

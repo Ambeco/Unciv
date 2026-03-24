@@ -15,6 +15,7 @@ import com.unciv.models.stats.Stats
 import com.unciv.ui.components.extensions.getNeedMoreAmountString
 import com.unciv.ui.components.extensions.toPercent
 import com.unciv.ui.objectdescriptions.BuildingDescriptions
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.Cache
 import yairm210.purity.annotations.LocalState
 import yairm210.purity.annotations.Readonly
@@ -79,16 +80,13 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
     }
 
     @Readonly
-    fun getStats(city: City,
-                 /* By default, do not cache - if we're getting stats for only one building this isn't efficient.
-                 * Only use a cache if it was sent to us from outside, which means we can use the results for other buildings.  */
-                 localUniqueCache: LocalUniqueCache = LocalUniqueCache(false)): Stats = timeThis("Building.getStats") {
+    fun getStats(city: City): Stats = timeThis("Building.getStats") {
         // Calls the clone function of the NamedStats this class is derived from, not a clone function of this class
         @LocalState val stats = cloneStats()
         
         val conditionalState = city.state
 
-        for (unique in localUniqueCache.forCityGetMatchingUniques(city, UniqueType.StatsFromObject)) {
+        for (unique in city.getMatchingUniques(UniqueType.StatsFromObject)) {
             if (!matchesFilter(unique.params[1], conditionalState)) continue
             stats.add(unique.stats)
         }
@@ -97,7 +95,7 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
             stats.add(unique.stats)
 
         if (!isWonder)
-            for (unique in localUniqueCache.forCityGetMatchingUniques(city, UniqueType.StatsFromBuildings)) {
+            for (unique in city.getMatchingUniques(UniqueType.StatsFromBuildings)) {
                 if (matchesFilter(unique.params[1], conditionalState))
                     stats.add(unique.stats)
             }
@@ -105,18 +103,18 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
     }
 
     @Readonly
-    fun getStatPercentageBonuses(city: City?, localUniqueCache: LocalUniqueCache = LocalUniqueCache(false)): Stats {
+    fun getStatPercentageBonuses(city: City?): Stats {
         @LocalState val stats = percentStatBonus?.clone() ?: Stats()
         if (city == null) return stats  // initial stats
 
         val conditionalState = city.state
 
-        for (unique in localUniqueCache.forCityGetMatchingUniques(city, UniqueType.StatPercentFromObject)) {
+        for (unique in city.getMatchingUniques(UniqueType.StatPercentFromObject)) {
             if (matchesFilter(unique.params[2], conditionalState))
                 stats.add(Stat.valueOf(unique.params[1]), unique.params[0].toFloat())
         }
 
-        for (unique in localUniqueCache.forCityGetMatchingUniques(city, UniqueType.AllStatsPercentFromObject)) {
+        for (unique in city.getMatchingUniques(UniqueType.AllStatsPercentFromObject)) {
             if (!matchesFilter(unique.params[1], conditionalState)) continue
             for (stat in Stat.entries) {
                 stats.add(stat, unique.params[0].toFloat())
@@ -191,7 +189,7 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
     @Readonly
     private fun getSpecificBuyCost(city: City, stat: Stat): Float? {
         val conditionalState = city.state
-        return sequence {
+        return listSequence {
             yieldAll(city.getMatchingUniques(UniqueType.BuyBuildingsIncreasingCost, conditionalState)
                 .filter {
                     it.params[2] == stat.name
@@ -274,7 +272,7 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
                 && rejectionReasons.all { it.type == RejectionReasonType.Unbuildable }
     }
 
-    override fun getRejectionReasons(cityConstructions: CityConstructions): Sequence<RejectionReason> = sequence {
+    override fun getRejectionReasons(cityConstructions: CityConstructions): Sequence<RejectionReason> = listSequence {
         val city = cityConstructions.city
         val cityCenter = city.getCenterTile()
         val civ = city.civ
@@ -440,7 +438,7 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
      * See also [com.unciv.models.ruleset.unit.BaseUnit.notMetRejections]
      */
     @Readonly
-    private fun notMetRejections(unique: Unique, cityConstructions: CityConstructions, built: Boolean=false): Sequence<RejectionReason> = sequence {
+    private fun notMetRejections(unique: Unique, cityConstructions: CityConstructions, built: Boolean=false): Sequence<RejectionReason> = listSequence {
         val civ = cityConstructions.city.civ
         for (conditional in unique.modifiers) {
             // We yield a rejection only when conditionals are NOT met

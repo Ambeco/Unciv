@@ -72,10 +72,12 @@ allprojects {
 
             "java.util.stream.StreamSupport.longStream",
             "java.util.stream.LongStream.parallel",
-            "kotlin.sequences.shuffled",
+            "kotlin.collections.asSequence",
+            "kotlin.collections.copyInto",
+            "kotlin.collections.firstNotNullOfOrNull",
             "kotlin.LongArray.get",
             "kotlin.LongArray.iterator",
-            "kotlin.collections.copyInto",
+            "kotlin.sequences.shuffled",
         )
         wellKnownPureClasses = setOf(
         )

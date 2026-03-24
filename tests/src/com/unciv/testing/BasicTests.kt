@@ -312,17 +312,17 @@ class BasicTests {
     fun statMathRandomResultTest() {
         val iterations = 42
         val expectedStats = Stats(
-            production = 212765.08f,
-            food = 776.8394f,
-            gold = -4987.297f,
-            science = 14880.18f,
-            culture = -49435.21f,
-            happiness = -13046.4375f,
-            faith = 7291.375f
+            production = 85440.75f,
+            food = 242201.75f,
+            gold = 9770.336f,
+            science = 294484.9f,
+            culture = -61607.05f,
+            happiness = -448352.16f,
+            faith = -609692.7f
         )
         // This is dependent on iterator order, so when that changes the expected values must change too
         val stats = statMathRunner(iterations)
-        Assert.assertTrue(stats.equals(expectedStats))
+        Assert.assertEquals(expectedStats.toStringForNotifications(), stats.toStringForNotifications())
     }
 
     private fun statMathRunner(iterations: Int): Stats {

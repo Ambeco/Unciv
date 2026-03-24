@@ -35,6 +35,7 @@ import com.unciv.models.stats.SubStat
 import com.unciv.models.translations.tr
 import com.unciv.ui.screens.civilopediascreen.ICivilopediaText
 import com.unciv.utils.Log
+import com.unciv.utils.listSequence
 import org.jetbrains.annotations.VisibleForTesting
 import yairm210.purity.annotations.Readonly
 import kotlin.collections.set
@@ -138,7 +139,7 @@ class Ruleset {
 
     /** Contains all happiness levels that moving *from* them, to one *below* them, can change uniques that apply */
     val allHappinessLevelsThatAffectUniques by lazy {
-        sequence {
+        listSequence {
             for (unique in this@Ruleset.allUniques())
                 for (conditional in unique.modifiers){
                     if (conditional.type == UniqueType.ConditionalWhenBelowAmountStatResource

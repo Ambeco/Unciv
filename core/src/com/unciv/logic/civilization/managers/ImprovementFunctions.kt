@@ -6,6 +6,7 @@ import com.unciv.logic.map.tile.Tile
 import com.unciv.models.ruleset.tile.TileImprovement
 import com.unciv.models.ruleset.unique.GameContext
 import com.unciv.models.ruleset.unique.UniqueType
+import com.unciv.utils.listSequence
 import yairm210.purity.annotations.Readonly
 
 object ImprovementFunctions {
@@ -14,7 +15,7 @@ object ImprovementFunctions {
      *  If the sequence is empty, improvement can be built immediately.
      */
     @Readonly
-    fun getImprovementBuildingProblems(improvement: TileImprovement, gameContext: GameContext, tile: Tile? = null): Sequence<ImprovementBuildingProblem> = sequence {
+    fun getImprovementBuildingProblems(improvement: TileImprovement, gameContext: GameContext, tile: Tile? = null): Sequence<ImprovementBuildingProblem> = listSequence {
         if (gameContext.civInfo != null) {
             val civInfo: Civilization = gameContext.civInfo
 
