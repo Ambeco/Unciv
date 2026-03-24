@@ -1,6 +1,5 @@
 package com.unciv.models.ruleset.unique
 
-import com.unciv.logic.automation.Timers.Companion.timeThis
 import com.unciv.logic.city.City
 import com.unciv.logic.civilization.Civilization
 import yairm210.purity.annotations.Cache
@@ -17,7 +16,7 @@ class LocalUniqueCache(val cache: Boolean = true) {
         city: City,
         uniqueType: UniqueType,
         gameContext: GameContext = city.state
-    ): Sequence<Unique> = timeThis("LocalUniqueCache.forCiyGetMatchingUniques") {
+    ): Sequence<Unique> {
         // City uniques are a combination of *global civ* uniques plus *city relevant* uniques (see City.getMatchingUniques())
         // We can cache the civ uniques separately, so if we have several cities using the same cache,
         //   we can cache the list of *civ uniques* to reuse between cities.
@@ -38,7 +37,7 @@ class LocalUniqueCache(val cache: Boolean = true) {
         civ: Civilization,
         uniqueType: UniqueType,
         gameContext: GameContext = civ.state
-    ): Sequence<Unique> = timeThis("LocalUniqueCache.forCivGetMatchingUniques") {
+    ): Sequence<Unique> {
         val sequence = civ.getMatchingUniques(uniqueType, GameContext.IgnoreMultiplicationForCaching)
         // The uniques CACHED are ALL civ uniques, regardless of conditional matching.
         // The uniques RETURNED are uniques AFTER conditional matching.

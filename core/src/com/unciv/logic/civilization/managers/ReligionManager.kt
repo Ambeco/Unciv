@@ -524,8 +524,11 @@ class ReligionManager : IsPartOfGameInfoSerialization {
     @Readonly
     fun numberOfCitiesFollowingThisReligion(): Int {
         if (religion == null) return 0
-        return civInfo.gameInfo.getCities()
-            .count { it.religion.getMajorityReligion() == religion }
+        var count = 0
+        civInfo.gameInfo.forEachCity { 
+            if (it.religion.getMajorityReligion() == religion) count++
+        }
+        return count
     }
 
     @Readonly

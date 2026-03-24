@@ -113,12 +113,10 @@ class CapitalConnectionsFinder(private val civInfo: Civilization) {
               (it.isCityCenter() || tileFilter(it)) && (owner == null || canEnterBordersOf(owner))
         }
         bfs.stepToEnd()
-        val reachedCities = openBordersCivCities.filter {
-            bfs.hasReachedTile(it.getCenterTile()) && cityFilter(it)
-        }
-        for (reachedCity in reachedCities) {
+        civInfo.gameInfo.forEachCity({ canEnterBordersOf(it) }) { reachedCity->
+            if (!bfs.hasReachedTile(reachedCity.getCenterTile()) || !cityFilter(reachedCity)) return@forEachCity
             addCityIfFirstEncountered(reachedCity)
-            if (reachedCity == cityToConnectFrom) continue
+            if (reachedCity == cityToConnectFrom) return@forEachCity
             if (!reachedCity.wasPreviouslyReached(transportType, overridingTransportType))
                 reachedCity.addMedium(transportType)
         }

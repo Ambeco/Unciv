@@ -64,7 +64,7 @@ class EspionageManager : IsPartOfGameInfoSerialization {
         return spyList.asSequence()
             .filter { it.isSetUp() }
             .mapNotNull { it.getCityOrNull() }
-            .flatMap { it.getCenterTile().getTilesInDistance(1) }
+            .flatMap { it.getCenterTile().neighbors }
     }
 
     @Readonly

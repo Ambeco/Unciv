@@ -59,12 +59,11 @@ class CivInfoStatsForNextTurn(val civInfo: Civilization) {
         for (unit in unitsToPayFor) {
             val stateForConditionals = unit.cache.state
             var unitMaintenance = 1f
-            val uniquesThatApply = unit.getMatchingUniques(
-                UniqueType.UnitMaintenanceDiscount,
-                stateForConditionals
-            ) + civwideDiscountUniques.filter { it.conditionalsApply(stateForConditionals) }
-            for (unique in uniquesThatApply) {
-                unitMaintenance *= unique.params[0].toPercent()
+            val op = { unique: Unique -> unitMaintenance *= unique.params[0].toPercent() }
+            unit.forEachMatchingUnique( UniqueType.UnitMaintenanceDiscount, stateForConditionals, op)
+            civwideDiscountUniques.forEach {
+                if (it.conditionalsApply(stateForConditionals))
+                    op(it)
             }
             costsToPay.add(unitMaintenance)
         }
@@ -93,9 +92,10 @@ class CivInfoStatsForNextTurn(val civInfo: Civilization) {
         // we no longer use .flatMap, because there are a lot of tiles and keeping them all in a list
         // just to go over them once is a waste of memory - there are low-end phones who don't have much ram
 
-        val ignoredTileTypes =
-            civInfo.getMatchingUniques(UniqueType.NoImprovementMaintenanceInSpecificTiles)
-                .map { it.params[0] }.toHashSet() // needs to be .toHashSet()ed,
+        val ignoredTileTypes = HashSet<String>()
+        civInfo.forEachMatchingUnique(UniqueType.NoImprovementMaintenanceInSpecificTiles) {
+            ignoredTileTypes.add(it.params[0])
+        }
         // Because we go over every tile in every city and check if it's in this list, which can get real heavy.
 
         fun addMaintenanceUniques(road: TileImprovement, type: UniqueType, state: GameContext) {
@@ -143,20 +143,25 @@ class CivInfoStatsForNextTurn(val civInfo: Civilization) {
 
     @Readonly
     fun getBaseUnitSupply(): Int {
-        return civInfo.getDifficulty().unitSupplyBase +
-            civInfo.getMatchingUniques(UniqueType.BaseUnitSupply).sumOf { it.params[0].toInt() }
+        var accumulator = 0
+        civInfo.forEachMatchingUnique(UniqueType.BaseUnitSupply) {
+            accumulator += it.params[0].toInt()
+        }
+        return civInfo.getDifficulty().unitSupplyBase + accumulator
     }
     @Readonly
     fun getUnitSupplyFromCities(): Int {
-        return civInfo.cities.size *
-            (civInfo.getDifficulty().unitSupplyPerCity
-                    + civInfo.getMatchingUniques(UniqueType.UnitSupplyPerCity).sumOf { it.params[0].toInt() })
+        var accumulator = 0
+        civInfo.forEachMatchingUnique(UniqueType.UnitSupplyPerCity) {
+            accumulator += it.params[0].toInt()
+        }
+        return civInfo.cities.size * (civInfo.getDifficulty().unitSupplyPerCity + accumulator)
     }
     @Readonly
     fun getUnitSupplyFromPop(): Int {
         var totalSupply = civInfo.cities.sumOf { it.population.population } * civInfo.gameInfo.ruleset.modOptions.constants.unitSupplyPerPopulation
 
-        for (unique in civInfo.getMatchingUniques(UniqueType.UnitSupplyPerPop)) {
+        civInfo.forEachMatchingUnique(UniqueType.UnitSupplyPerPop) {unique ->
             val applicablePopulation = civInfo.cities
                 .filter { it.matchesFilter(unique.params[2]) }
                 .sumOf { it.population.population / unique.params[1].toInt() }
@@ -251,8 +256,10 @@ class CivInfoStatsForNextTurn(val civInfo: Civilization) {
                 .none { unique -> civInfo.tech.isResearched(unique.params[0]) } }
         statMap["Luxury resources"] = relevantLuxuries * happinessPerUniqueLuxury
 
-        val happinessBonusForCityStateProvidedLuxuries =
-            civInfo.getMatchingUniques(UniqueType.CityStateLuxuryHappiness).sumOf { it.params[0].toInt() } / 100f
+        var happinessBonusForCityStateProvidedLuxuries = 0f
+        civInfo.forEachMatchingUnique(UniqueType.CityStateLuxuryHappiness) {
+            happinessBonusForCityStateProvidedLuxuries += it.params[0].toInt() / 100f
+        }
 
         val luxuriesProvidedByCityStates = civInfo.getKnownCivs().asSequence()
             .filter { it.isCityState && it.allyCiv == civInfo }

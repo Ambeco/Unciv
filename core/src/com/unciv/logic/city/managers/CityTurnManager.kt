@@ -26,7 +26,7 @@ class CityTurnManager(val city: City) {
             if (resource.resource.isStockpiled && resource.resource.isCityWide)
                 city.gainStockpiledResource(resource.resource, resource.amount)
         }
-        for (unique in city.getTriggeredUniques(UniqueType.TriggerUponTurnStart, includeCivUniques = false).toList()) {
+        city.forEachTriggeredUnique(UniqueType.TriggerUponTurnStart, includeCivUniques = false) { unique->
             UniqueTriggerActivation.triggerUnique(unique, city)
         }
 
