@@ -103,11 +103,13 @@ class CityStats(val city: City) {
         val capitalForTradeRoutePurposes = city.civ.getCapital()!!
         if (city != capitalForTradeRoutePurposes && city.isConnectedToCapital()) {
             stats.gold = capitalForTradeRoutePurposes.population.population * 0.15f + city.population.population * 1.1f - 1 // Calculated by http://civilization.wikia.com/wiki/Trade_route_(Civ5)
-            for (unique in city.getMatchingUniques(UniqueType.StatsFromTradeRoute))
+            city.forEachMatchingUnique(UniqueType.StatsFromTradeRoute) { unique ->
                 stats.add(unique.stats)
+            }
             val percentageStats = Stats()
-            for (unique in city.getMatchingUniques(UniqueType.StatPercentFromTradeRoutes))
+            city.forEachMatchingUnique(UniqueType.StatPercentFromTradeRoutes) { unique ->
                 percentageStats[Stat.valueOf(unique.params[1])] += unique.params[0].toFloat()
+            }
             for ((stat) in stats) {
                 stats[stat] *= percentageStats[stat].toPercent()
             }
@@ -204,20 +206,19 @@ class CityStats(val city: City) {
     @Readonly
     private fun getStatsFromUniquesBySource(): StatTreeNode {
         val sourceToStats = StatTreeNode()
-
-        val cityStateStatsMultipliers = city.civ.getMatchingUniques(UniqueType.BonusStatsFromCityStates).toList()
-
         fun addUniqueStats(unique: Unique) {
             @LocalState val stats = unique.stats.clone()
             if (unique.sourceObjectType==UniqueTarget.CityState)
-                for (multiplierUnique in cityStateStatsMultipliers)
-                    stats[Stat.valueOf(multiplierUnique.params[1])] *= multiplierUnique.params[0].toPercent()
+                city.civ.forEachMatchingUnique(UniqueType.BonusStatsFromCityStates) {
+                    stats[Stat.valueOf(it.params[1])] *= it.params[0].toPercent()
+                }
             sourceToStats.addStats(stats, unique.getSourceNameForUser(), unique.sourceObjectName ?: "")
         }
 
-        for (unique in city.getMatchingUniques(UniqueType.StatsPerCity))
+        city.forEachMatchingUnique(UniqueType.StatsPerCity) { unique->
             if (city.matchesFilter(unique.params[1]))
                 addUniqueStats(unique)
+        }
 
         // "[stats] per [amount] population [cityFilter]"
         for (unique in city.getMatchingUniques(UniqueType.StatsPerPopulation))
@@ -251,47 +252,46 @@ class CityStats(val city: City) {
             sourceToStats.addStats(stats, unique.getSourceNameForUser(), unique.sourceObjectName ?: "")
         }
 
-        for (unique in city.getMatchingUniques(UniqueType.StatPercentBonus)) {
+        city.forEachMatchingUnique(UniqueType.StatPercentBonus) { unique ->
             addUniqueStats(unique, Stat.valueOf(unique.params[1]), unique.params[0].toFloat())
         }
 
 
-        for (unique in city.getMatchingUniques(UniqueType.StatPercentBonusCities)) {
+        city.forEachMatchingUnique(UniqueType.StatPercentBonusCities) { unique ->
             if (city.matchesFilter(unique.params[2]))
                 addUniqueStats(unique, Stat.valueOf(unique.params[1]), unique.params[0].toFloat())
         }
 
-        val uniquesToCheck =
-            when {
-                currentConstruction is BaseUnit ->
-                    city.getMatchingUniques(UniqueType.PercentProductionUnits)
-                currentConstruction is Building && currentConstruction.isAnyWonder() ->
-                    city.getMatchingUniques(UniqueType.PercentProductionWonders)
-                currentConstruction is Building && !currentConstruction.isAnyWonder() ->
-                    city.getMatchingUniques(UniqueType.PercentProductionBuildings)
-                else -> emptySequence() // Science/Gold production
-            }
-
-        for (unique in uniquesToCheck) {
+        val constructionOp = {unique: Unique ->
             if (constructionMatchesFilter(currentConstruction, unique.params[1])
                 && city.matchesFilter(unique.params[2])
             )
                 addUniqueStats(unique, Stat.Production, unique.params[0].toFloat())
         }
+        when {
+            currentConstruction is BaseUnit ->
+                city.forEachMatchingUnique(UniqueType.PercentProductionUnits, constructionOp)
+            currentConstruction is Building && currentConstruction.isAnyWonder() ->
+                city.forEachMatchingUnique(UniqueType.PercentProductionWonders, constructionOp)
+            currentConstruction is Building && !currentConstruction.isAnyWonder() ->
+                city.forEachMatchingUnique(UniqueType.PercentProductionBuildings, constructionOp)
+            // else Science/Gold production
+        }
 
-
-        for (unique in city.getMatchingUniques(UniqueType.StatPercentFromReligionFollowers))
+        city.forEachMatchingUnique(UniqueType.StatPercentFromReligionFollowers) { unique ->
             addUniqueStats(unique, Stat.valueOf(unique.params[1]),
                 min(
                     unique.params[0].toFloat() * city.religion.getFollowersOfMajorityReligion(),
                     unique.params[2].toFloat()
                 ))
+        }
 
         if (currentConstruction is Building
             && city.civ.getCapital()?.cityConstructions?.isBuilt(currentConstruction.name) == true
         ) {
-            for (unique in city.getMatchingUniques(UniqueType.PercentProductionBuildingsInCapital))
+            city.forEachMatchingUnique(UniqueType.PercentProductionBuildingsInCapital) { unique ->
                 addUniqueStats(unique, Stat.Production, unique.params[0].toFloat())
+            }
         }
 
         return sourceToStats
@@ -399,9 +399,10 @@ class CityStats(val city: City) {
 
         var unhappinessFromCitizens = city.population.population.toFloat()
 
-        for (unique in city.getMatchingUniques(UniqueType.UnhappinessFromPopulationTypePercentageChange))
+        city.forEachMatchingUnique(UniqueType.UnhappinessFromPopulationTypePercentageChange) { unique ->
             if (city.matchesFilter(unique.params[2]))
                 unhappinessFromCitizens += (unique.params[0].toFloat() / 100f) * city.population.getPopulationFilterAmount(unique.params[1])
+        }
 
         if (hasExtraAnnexUnhappiness())
             unhappinessFromCitizens *= 2f

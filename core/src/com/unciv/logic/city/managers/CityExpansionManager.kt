@@ -130,7 +130,7 @@ class CityExpansionManager : IsPartOfGameInfoSerialization {
         // It becomes an invisible city and weird shit starts happening
         takeOwnership(city.getCenterTile())
 
-        for (tile in city.getCenterTile().getTilesInDistance(1)
+        for (tile in city.getCenterTile().neighbors
                 .filter { it.getCity() == null }) // can't take ownership of owned tiles (by other cities)
             takeOwnership(tile)
     }

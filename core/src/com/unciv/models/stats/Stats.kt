@@ -55,12 +55,12 @@ open class Stats(
     @Readonly
     fun equals(otherStats: Stats): Boolean {
         return production == otherStats.production
-                && food == otherStats.food
-                && gold == otherStats.gold
-                && science == otherStats.science
-                && culture == otherStats.culture
-                && happiness == otherStats.happiness
-                && faith == otherStats.faith
+            && food == otherStats.food
+            && gold == otherStats.gold
+            && science == otherStats.science
+            && culture == otherStats.culture
+            && happiness == otherStats.happiness
+            && faith == otherStats.faith
     }
 
     /** **Non-Mutating function**
@@ -70,7 +70,7 @@ open class Stats(
     /** @return `true` if all values are zero */
     @Readonly
     fun isEmpty() = (
-            production == 0f
+        production == 0f
             && food == 0f
             && gold == 0f
             && science == 0f
@@ -236,6 +236,17 @@ open class Stats(
             yield(happiness)
             yield(faith)
         }
+
+    @Readonly
+    fun forEach(op: (Stat, Float)->Unit) {
+        op(Stat.Production, production)
+        op(Stat.Food, food)
+        op(Stat.Gold, gold)
+        op(Stat.Science, science)
+        op(Stat.Culture, culture)
+        op(Stat.Happiness, happiness)
+        op(Stat.Faith, faith)
+    }
 
     /** Returns an iterator over the elements of this object, wrapped as [StatValuePair]s */
     override fun iterator(): Iterator<StatValuePair> = asSequence().iterator()

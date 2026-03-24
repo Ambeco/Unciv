@@ -386,8 +386,9 @@ class MapUnit : IsPartOfGameInfoSerialization {
                 if (isEmbarked()) 2
                 else baseUnit.movement
 
-        movement += getMatchingUniques(UniqueType.Movement, checkCivInfoUniques = true)
-                .sumOf { it.params[0].toInt() }
+        forEachMatchingUnique(UniqueType.Movement, checkCivInfoUniques = true) {
+            movement += it.params[0].toInt()
+        }
 
         if (movement < 1) movement = 1
 
@@ -468,7 +469,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
         if (hasUnique(UniqueType.Invisible) && !to.isSpectator())
             return true
         if (hasUnique(UniqueType.InvisibleToNonAdjacent) && !to.isSpectator())
-            return getTile().getTilesInDistance(1).none {
+            return getTile().neighbors.none {
                 it.getUnits().any { unit -> unit.civ == to }
             }
         return false
@@ -523,7 +524,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
 
         healing += getMatchingUniques(UniqueType.Heal, checkCivInfoUniques = true).sumOf { it.params[0].toInt() }
 
-        val healingCity = tile.getTilesInDistance(1).firstOrNull {
+        val healingCity = tile.neighbors.firstOrNull {
             it.isCityCenter() && it.getCity()!!.getMatchingUniques(UniqueType.CityHealingUnits).any()
         }?.getCity()
         if (healingCity != null) {

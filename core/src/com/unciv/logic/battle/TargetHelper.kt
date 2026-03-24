@@ -152,8 +152,16 @@ object TargetHelper {
 
     /** Get a list of visible tiles which have something attackable */
     @Readonly
+    @Deprecated(message = "forEachBombardableTile is faster. If not viable, then this can still be used",
+        replaceWith = ReplaceWith("forEachBombardableTile"))
     fun getBombardableTiles(city: City): Sequence<Tile> =
             city.getCenterTile().getTilesInDistance(city.getBombardRange())
                     .filter { it.isVisible(city.civ) && containsAttackableEnemy(it, CityCombatant(city)) }
+    @Readonly
+    fun forEachBombardableTile(city: City, op:(Tile) -> Unit) =
+        city.getCenterTile().forEachTileInDistance(
+            city.getBombardRange(),
+        { it.isVisible(city.civ) && containsAttackableEnemy(it, CityCombatant(city)) }, 
+            op)
 
 }

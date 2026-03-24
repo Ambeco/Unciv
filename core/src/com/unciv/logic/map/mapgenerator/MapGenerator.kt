@@ -332,7 +332,7 @@ class MapGenerator(val ruleset: Ruleset, private val coroutineScope: CoroutineSc
         for (i in 1..map.mapParameters.maxCoastExtension) {
             val toCoast = mutableListOf<Tile>()
             for (tile in map.values.filter { it.isOcean }) {
-                val tilesInDistance = tile.getTilesInDistance(1)
+                val tilesInDistance = tile.neighbors
                 for (neighborTile in tilesInDistance) {
                     if (neighborTile.isLand) {
                         toCoast.add(tile)

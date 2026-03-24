@@ -162,9 +162,10 @@ class CityPopulationManager : IsPartOfGameInfoSerialization {
         val cityStats = city.cityStats.currentCityStats
         city.currentGPPBonus = city.getGreatPersonPercentageBonus()  // pre-calculate for use in Automation.rankSpecialist
         var specialistFoodBonus = 2f  // See CityStats.calcFoodEaten()
-        for (unique in city.getMatchingUniques(UniqueType.FoodConsumptionBySpecialists))
+        city.forEachMatchingUnique(UniqueType.FoodConsumptionBySpecialists) { unique ->
             if (city.matchesFilter(unique.params[1]))
                 specialistFoodBonus *= unique.params[0].toPercent()
+        }
         specialistFoodBonus = 2f - specialistFoodBonus
 
         val tilesToEvaluate = city.getWorkableTiles()

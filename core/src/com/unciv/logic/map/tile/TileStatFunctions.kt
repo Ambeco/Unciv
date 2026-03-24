@@ -112,9 +112,7 @@ class TileStatFunctions(val tile: Tile) {
                 roadStats.add(getExtraImprovementStats(road, observingCiv, city))
 
             if (improvement != null) {
-                val ensureMinUnique = improvement
-                    .getMatchingUniques(UniqueType.EnsureMinimumStats, gameContext)
-                    .firstOrNull()
+                val ensureMinUnique = improvement.firstMatchingUniqueOrNull(UniqueType.EnsureMinimumStats, gameContext) {true}
                 if (ensureMinUnique != null) minimumStats = ensureMinUnique.stats
             }
         }
@@ -153,7 +151,7 @@ class TileStatFunctions(val tile: Tile) {
         val list = ArrayList<Pair<String,Stats>>()
         list.add(terrain.name to (terrain as Stats))
 
-        for (unique in terrain.getMatchingUniques(UniqueType.Stats, gameContext)) {
+        terrain.forEachMatchingUnique(UniqueType.Stats, gameContext) { unique ->
             list.add(terrain.name+": "+unique.getDisplayText() to unique.stats)
         }
         return list
@@ -305,11 +303,11 @@ class TileStatFunctions(val tile: Tile) {
             stats.add(resource.improvementStats!!) // resource-specific improvement
 
         val conditionalState = GameContext(civInfo = observingCiv, city = city, tile = tile)
-        for (unique in improvement.getMatchingUniques(UniqueType.Stats, conditionalState)) {
+        improvement.forEachMatchingUnique(UniqueType.Stats, conditionalState) { unique ->
             stats.add(unique.stats)
         }
 
-        for (unique in improvement.getMatchingUniques(UniqueType.ImprovementStatsForAdjacencies, conditionalState)) {
+        improvement.forEachMatchingUnique(UniqueType.ImprovementStatsForAdjacencies, conditionalState) { unique ->
             val adjacent = unique.params[1]
             val numberOfBonuses = tile.neighbors.count {
                 it.matchesFilter(adjacent, observingCiv)
@@ -318,7 +316,7 @@ class TileStatFunctions(val tile: Tile) {
             stats.add(unique.stats.times(numberOfBonuses.toFloat()))
         }
 
-        for (unique in improvement.getMatchingUniques(UniqueType.ImprovementStatsOnTile, conditionalState)) {
+        improvement.forEachMatchingUnique(UniqueType.ImprovementStatsOnTile, conditionalState) { unique ->
             if (tile.matchesFilter(unique.params[1])
                 || unique.params[1] == Constants.freshWater && tile.isAdjacentTo(Constants.freshWater)
                 || unique.params[1] == "non-fresh water" && !tile.isAdjacentTo(Constants.freshWater)

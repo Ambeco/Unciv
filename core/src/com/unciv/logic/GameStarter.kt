@@ -660,14 +660,14 @@ object GameStarter {
                 startBias.equalsPlaceholderText("Avoid []") -> {
                     val tileToAvoid = startBias.getPlaceholderParameters()[0]
                     preferredTiles.filter { tile ->
-                        !tile.getTilesInDistance(1).any {
+                        !tile.neighbors.any {
                             it.matchesTerrainFilter(tileToAvoid, null)
                         }
                     }
                 }
                 startBias in tileMap.naturalWonders -> preferredTiles  // passthrough: already failed
                 else -> preferredTiles.filter { tile ->
-                    tile.getTilesInDistance(1).any {
+                    tile.neighbors.any {
                         it.matchesTerrainFilter(startBias, null)
                     }
                 }
