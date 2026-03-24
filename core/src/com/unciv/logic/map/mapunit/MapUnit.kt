@@ -354,6 +354,21 @@ class MapUnit : IsPartOfGameInfoSerialization {
     }
 
     @Readonly
+    fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = cache.state, op: (Unique)->Unit)
+        = forEachMatchingUnique(uniqueType, gameContext, checkCivInfoUniques = false, op)
+    @Readonly
+    fun forEachMatchingUnique(
+        uniqueType: UniqueType,
+        gameContext: GameContext = cache.state,
+        checkCivInfoUniques: Boolean,
+        op: (Unique)->Unit,
+    ) {
+        tempUniquesMap.forEachMatchingUnique(uniqueType, gameContext, op)
+        if (checkCivInfoUniques)
+            civ.forEachMatchingUnique(uniqueType, gameContext, op)
+    }
+
+    @Readonly
     fun hasUnique(
         uniqueType: UniqueType,
         gameContext: GameContext = cache.state,
