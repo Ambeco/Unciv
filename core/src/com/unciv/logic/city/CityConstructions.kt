@@ -52,7 +52,11 @@ import kotlin.math.roundToInt
  * @property currentConstructionIsUserSet a flag indicating if the [ currentConstructionName()] has been set by the user or by the AI
  * @property constructionQueue a list of constructions names enqueued
  */
-class CityConstructions : IsPartOfGameInfoSerialization {
+class CityConstructions
+private constructor(
+    @Transient
+    val builtBuildingUniqueMap: UniqueMap
+) : IsPartOfGameInfoSerialization {
     companion object {
         private const val queueMaxSize = 10
     }
@@ -66,9 +70,17 @@ class CityConstructions : IsPartOfGameInfoSerialization {
 
     @Transient @Cache
     private val containedBuildingFiltersCache = HashMap<String, Boolean>()
+    
+    constructor() : this(UniqueMap())
 
-    @Transient
-    val builtBuildingUniqueMap = UniqueMap()
+    constructor(copyOf: CityConstructions): this(UniqueMap(copyOf.builtBuildingUniqueMap)) {
+        builtBuildings.addAll(copyOf.builtBuildings)
+        inProgressConstructions.putAll(copyOf.inProgressConstructions)
+        currentConstructionIsUserSet = copyOf.currentConstructionIsUserSet
+        constructionQueue.addAll(copyOf.constructionQueue)
+        productionOverflow = copyOf.productionOverflow
+        freeBuildingsProvidedFromThisCity.putAll(copyOf.freeBuildingsProvidedFromThisCity)
+    }
 
     @Readonly fun currentConstructionName() = if (constructionQueue.isEmpty()) "" else constructionQueue.first()
     fun setCurrentConstruction(value: String) {
@@ -91,17 +103,6 @@ class CityConstructions : IsPartOfGameInfoSerialization {
 
     //endregion
     //region pure functions
-
-    fun clone(): CityConstructions {
-        val toReturn = CityConstructions()
-        toReturn.builtBuildings.addAll(builtBuildings)
-        toReturn.inProgressConstructions.putAll(inProgressConstructions)
-        toReturn.currentConstructionIsUserSet = currentConstructionIsUserSet
-        toReturn.constructionQueue.addAll(constructionQueue)
-        toReturn.productionOverflow = productionOverflow
-        toReturn.freeBuildingsProvidedFromThisCity.putAll(freeBuildingsProvidedFromThisCity)
-        return toReturn
-    }
 
     // Why is one of these called 'buildable' and the other 'constructable'?
     @Readonly

@@ -299,7 +299,7 @@ class Civilization : IsPartOfGameInfoSerialization {
         for (diplomacyManager in diplomacy.values.map { it.clone() })
             toReturn.diplomacy[diplomacyManager.otherCivName] = diplomacyManager
         toReturn.proximity.putAll(proximity)
-        toReturn.cities = cities.map { it.clone() }
+        toReturn.cities = cities.map { City(it) }
         toReturn.neutralRoads = neutralRoads
         toReturn.exploredRegion = exploredRegion.clone()
         toReturn.lastSeenImprovement.putAll(lastSeenImprovement)

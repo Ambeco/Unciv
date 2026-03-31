@@ -73,8 +73,10 @@ class Religion() : INamed, IsPartOfGameInfoSerialization {
     }
 
     private fun updateUniqueMaps(){
-        followerBeliefUniqueMap = UniqueMap(mapToExistingBeliefs(followerBeliefs).flatMap { it.uniqueObjects })
-        founderBeliefUniqueMap = UniqueMap(mapToExistingBeliefs(founderBeliefs).flatMap { it.uniqueObjects })
+        followerBeliefUniqueMap.clear()
+        followerBeliefUniqueMap.addUniques(mapToExistingBeliefs(followerBeliefs).flatMap { it.uniqueObjects }.asIterable())
+        founderBeliefUniqueMap.clear()
+        founderBeliefUniqueMap.addUniques(mapToExistingBeliefs(founderBeliefs).flatMap { it.uniqueObjects }.asIterable())
     }
 
     fun addBeliefs(beliefs: Iterable<Belief>){

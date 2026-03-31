@@ -47,7 +47,7 @@ enum class CityFlags {
 }
 
 
-class City : IsPartOfGameInfoSerialization, INamed {
+class City() : IsPartOfGameInfoSerialization, INamed {
     @Transient
     lateinit var civ: Civilization
 
@@ -159,38 +159,37 @@ class City : IsPartOfGameInfoSerialization, INamed {
 
     @Readonly fun hasDiplomaticMarriage(): Boolean = foundingCivObject == null
 
-    //region pure functions
-    fun clone(): City {
-        val toReturn = City()
-        toReturn.location = location
-        toReturn.id = id
-        toReturn.name = name
-        toReturn.health = health
-        toReturn.population = population.clone()
-        toReturn.cityConstructions = cityConstructions.clone()
-        toReturn.expansion = expansion.clone()
-        toReturn.religion = religion.clone()
-        toReturn.tiles = tiles
-        toReturn.workedTiles = workedTiles
-        toReturn.lockedTiles = lockedTiles
-        toReturn.resourceStockpiles = resourceStockpiles.clone()
-        toReturn.isBeingRazed = isBeingRazed
-        toReturn.attackedThisTurn = attackedThisTurn
-        toReturn.foundingCiv = foundingCiv
-        toReturn.turnAcquired = turnAcquired
-        toReturn.isPuppet = isPuppet
-        toReturn.isOriginalCapital = isOriginalCapital
-        toReturn.flagsCountdown.putAll(flagsCountdown)
-        toReturn.demandedResource = demandedResource
-        toReturn.shouldReassignPopulation = shouldReassignPopulation
-        toReturn.cityAIFocus = cityAIFocus
-        toReturn.avoidGrowth = avoidGrowth
-        toReturn.manualSpecialists = manualSpecialists
-        toReturn.connectedToCapitalStatus = connectedToCapitalStatus
-        toReturn.unitShouldUseSavedPromotion = unitShouldUseSavedPromotion
-        toReturn.unitToPromotions = unitToPromotions
-        return toReturn
+    constructor(copyFrom: City): this() {
+        location = copyFrom.location
+        id = copyFrom.id
+        name = copyFrom.name
+        health = copyFrom.health
+        population = copyFrom.population.clone()
+        cityConstructions = CityConstructions(copyFrom.cityConstructions)
+        expansion = copyFrom.expansion.clone()
+        religion = copyFrom.religion.clone()
+        tiles = copyFrom.tiles
+        workedTiles = copyFrom.workedTiles
+        lockedTiles = copyFrom.lockedTiles
+        resourceStockpiles = copyFrom.resourceStockpiles.clone()
+        isBeingRazed = copyFrom.isBeingRazed
+        attackedThisTurn = copyFrom.attackedThisTurn
+        foundingCiv = copyFrom.foundingCiv
+        turnAcquired = copyFrom.turnAcquired
+        isPuppet = copyFrom.isPuppet
+        isOriginalCapital = copyFrom.isOriginalCapital
+        flagsCountdown.putAll(copyFrom.flagsCountdown)
+        demandedResource = copyFrom.demandedResource
+        shouldReassignPopulation = copyFrom.shouldReassignPopulation
+        cityAIFocus = copyFrom.cityAIFocus
+        avoidGrowth = copyFrom.avoidGrowth
+        manualSpecialists = copyFrom.manualSpecialists
+        connectedToCapitalStatus = copyFrom.connectedToCapitalStatus
+        unitShouldUseSavedPromotion = copyFrom.unitShouldUseSavedPromotion
+        unitToPromotions = copyFrom.unitToPromotions
     }
+    
+    //region pure functions
 
     @Readonly fun canBombard() = !attackedThisTurn && !isInResistance()
     @Readonly fun getCenterTile(): Tile = centerTile

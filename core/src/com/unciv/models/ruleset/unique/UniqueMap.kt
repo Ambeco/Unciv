@@ -3,20 +3,38 @@ package com.unciv.models.ruleset.unique
 import yairm210.purity.annotations.Readonly
 import java.util.*
 
-open class UniqueMap() {
-    private val tagUniqueMap = HashMap<String, ArrayList<Unique>>()
+open class UniqueMap 
+private constructor(
+    private var tagUniqueMap: HashMap<String, ArrayList<Unique>>,
 
     // *shares* the list of uniques with the other map, to save on memory and allocations
     // This is a memory/speed tradeoff, since there are *600 unique types*,
     // 750 including deprecated, and EnumMap creates a N-sized array where N is the number of objects in the enum
-    private val typedUniqueMap = EnumMap<UniqueType, ArrayList<Unique>>(UniqueType::class.java)
-
+    private var typedUniqueMap: EnumMap<UniqueType, ArrayList<Unique>>,
+    
+    private var copyOnWrite: Boolean = false,
+) {
+    constructor() : this(HashMap<String, ArrayList<Unique>>(), EnumMap<UniqueType, ArrayList<Unique>>(UniqueType::class.java))
     constructor(uniques: Sequence<Unique>) : this() {
         addUniques(uniques.asIterable())
+    }
+    constructor(uniques: Iterable<Unique>) : this() {
+        addUniques(uniques)
+    }
+    constructor(copyOf: UniqueMap) : this(copyOf.tagUniqueMap, copyOf.typedUniqueMap, copyOnWrite = true)
+    
+    @Synchronized
+    private fun forkCopyForWrite() {
+        if (copyOnWrite) {
+            tagUniqueMap = HashMap(tagUniqueMap)
+            typedUniqueMap = EnumMap(typedUniqueMap)
+            copyOnWrite = false
+        }
     }
 
     /** Adds one [unique] unless it has a ConditionalTimedUnique conditional */
     open fun addUnique(unique: Unique) {
+        if (copyOnWrite) forkCopyForWrite()
         val existingArrayList = tagUniqueMap[unique.placeholderText]
         if (existingArrayList != null) existingArrayList.add(unique)
         else tagUniqueMap[unique.placeholderText] = arrayListOf(unique)
@@ -32,11 +50,13 @@ open class UniqueMap() {
     }
 
     fun removeUnique(unique: Unique) {
+        if (copyOnWrite) forkCopyForWrite()
         val existingArrayList = tagUniqueMap[unique.placeholderText]
         existingArrayList?.remove(unique)
     }
     
     fun clear() {
+        if (copyOnWrite) forkCopyForWrite()
         tagUniqueMap.clear()
         typedUniqueMap.clear()
     }

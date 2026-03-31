@@ -5,6 +5,7 @@ import com.unciv.UncivGame
 import com.unciv.logic.automation.Automation
 import com.unciv.logic.automation.civilization.NextTurnAutomation
 import com.unciv.logic.automation.unit.WorkerAutomation
+import com.unciv.logic.city.City
 import com.unciv.logic.city.CityConstructions
 import com.unciv.logic.civilization.CityAction
 import com.unciv.logic.civilization.NotificationCategory
@@ -367,7 +368,7 @@ class ConstructionAutomation(val cityConstructions: CityConstructions) {
 
     // NOT readonly safe, since it alters the tile ownership of real tiles
     private fun getStatDifferenceFromBuilding(building: String): Stats {
-        val newCity = city.clone()
+        val newCity = City(city)
         newCity.setTransients(city.civ) // Will break the owned tiles. Needs to be reverted before leaving this function
         //todo: breaks city connection; trade route gold is currently not considered for markets etc.
         newCity.cityStats.update(updateCivStats = false, calculateGrowthModifiers = false) // Don't consider growth penalties for food values (we can work more mines/specialists instead of farms)
