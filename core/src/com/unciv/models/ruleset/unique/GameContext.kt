@@ -45,20 +45,18 @@ data class GameContext(
     )
 
 
-    val relevantUnit by lazy {
+    val relevantUnit get() =
         if (ourCombatant != null && ourCombatant is MapUnitCombatant) ourCombatant.unit
         else unit
-    }
 
-    val relevantTile by lazy { attackedTile
+    val relevantTile get() = attackedTile
         ?: tile
         // We need to protect against conditionals checking tiles for units pre-placement - see #10425, #10512
         ?: relevantUnit?.run { if (hasTile()) getTile() else null }
         ?: city?.getCenterTileOrNull()
-    }
 
-    val relevantCity by lazy {
-        if (city != null) return@lazy city
+    val relevantCity: City? get() {
+        if (city != null) return city
         // Edge case: If we attack a city, the "relevant tile" becomes the attacked tile -
         //  but we DO NOT want that city to become the relevant city because then *our* conditionals get checked against
         //  the *other civ's* cities, leading to e.g. resource amounts being defined as the *other civ's* resource amounts
@@ -66,15 +64,14 @@ data class GameContext(
         val cityForRelevantTile = relevantTileForCity?.getCity()
         if (cityForRelevantTile != null &&
             // ...and we can't use the relevantCiv here either, because that'll cause a loop
-            (cityForRelevantTile.civ == civInfo || cityForRelevantTile.civ == relevantUnit?.civ)) return@lazy cityForRelevantTile
-        else return@lazy null
+            (cityForRelevantTile.civ == civInfo || cityForRelevantTile.civ == relevantUnit?.civ)) return cityForRelevantTile
+        else return null
     }
 
-    val relevantCiv by lazy {
+    val relevantCiv get() =
         civInfo ?:
         relevantCity?.civ ?:
         relevantUnit?.civ
-    }
 
     @Readonly
     fun getResourceAmount(resourceName: String): Int {

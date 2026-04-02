@@ -236,6 +236,16 @@ open class Stats(
             yield(happiness)
             yield(faith)
         }
+    
+    fun forEach(op: (Stat, Float)->Unit) {
+        op(Stat.Production, production)
+        op(Stat.Food, food)
+        op(Stat.Gold, gold)
+        op(Stat.Science, science)
+        op(Stat.Culture, culture)
+        op(Stat.Happiness, happiness)
+        op(Stat.Faith, faith)
+    }
 
     @Readonly
     fun forEach(op: (Stat, Float)->Unit) {
