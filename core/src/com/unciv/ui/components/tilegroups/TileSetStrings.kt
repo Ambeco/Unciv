@@ -98,23 +98,8 @@ class TileSetStrings(
     // On large maps, this can end up as quite a lot of space, some tens of MB!
     // In order to save on space, we have this function that gets several strings and returns their concat,
     //  but is able to retrieve the existing concat if it exists, letting us essentially save each string exactly once.
-    private val stringConcatHashmap = HashMap<Pair<String, String>, String>()
     fun getString(vararg strings: String): String {
-        var currentString = ""
-        for (str in strings) {
-            if (currentString == "") {
-                currentString = str
-                continue
-            }
-            val pair = Pair(currentString, str)
-            if (stringConcatHashmap.containsKey(pair)) currentString = stringConcatHashmap[pair]!!
-            else {
-                val newString = currentString + str
-                stringConcatHashmap[pair] = newString
-                currentString = newString
-            }
-        }
-        return currentString
+        return strings.joinToString("").intern()
     }
 
     fun getTile(baseTerrain: String) = getString(tilesLocation, baseTerrain)
