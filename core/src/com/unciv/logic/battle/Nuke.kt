@@ -308,8 +308,8 @@ object Nuke {
     @Readonly
     private fun City.getAggregateModifier(uniqueType: UniqueType): Float {
         var modifier = 1f
-        for (unique in getMatchingUniques(uniqueType)) {
-            if (!matchesFilter(unique.params[1])) continue
+        forEachMatchingUnique(uniqueType) { unique->
+            if (!matchesFilter(unique.params[1])) return@forEachMatchingUnique
             modifier *= unique.params[0].toPercent()
         }
         return modifier

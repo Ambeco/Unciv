@@ -70,7 +70,8 @@ class CityCombatant(val city: City) : ICombatant {
             buildingsStrength *= unique.params[0].toPercent()
         strength += buildingsStrength
 
-        val extraStrength = city.getMatchingUniques(UniqueType.StrengthAmount, gameContext).sumOf { it.params[0].toInt() }
+        var extraStrength = 0
+        city.forEachMatchingUnique(UniqueType.StrengthAmount, gameContext) { extraStrength += it.params[0].toInt() }
         strength += extraStrength
 
         return strength.roundToInt()

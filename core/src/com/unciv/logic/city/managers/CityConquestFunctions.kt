@@ -39,12 +39,12 @@ class CityConquestFunctions(val city: City) {
         val turnModifier = max(0, min(50, city.civ.gameInfo.turns - city.turnAcquired)) / 50f
         
         var cityModifier = 1f
-        for (unique in city.getMatchingUniques(UniqueType.GoldFromCapturingCity, city.state)) {
+        city.forEachMatchingUnique(UniqueType.GoldFromCapturingCity, city.state) {unique->
             cityModifier *= unique.params[0].toPercent()
         }
 
         var conqueringCivModifier = 1f
-        for (unique in conqueringCiv.getMatchingUniques(UniqueType.GoldFromEncampmentsAndCities, conqueringCiv.state)) {
+        conqueringCiv.forEachMatchingUnique(UniqueType.GoldFromEncampmentsAndCities, conqueringCiv.state) {unique->
             conqueringCivModifier *= unique.params[0].toPercent()
         }
 

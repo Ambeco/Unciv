@@ -161,22 +161,19 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
 
         val conditionalState = city.state
         return (
-            city.getMatchingUniques(UniqueType.BuyBuildingsIncreasingCost, conditionalState)
-                .any {
+            city.hasMatchingUnique(UniqueType.BuyBuildingsIncreasingCost, conditionalState) {
                     it.params[2] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
                     && city.matchesFilter(it.params[3])
                 }
-            || city.getMatchingUniques(UniqueType.BuyBuildingsByProductionCost, conditionalState)
-                .any { it.params[1] == stat.name && matchesFilter(it.params[0], conditionalState) }
-            || city.getMatchingUniques(UniqueType.BuyBuildingsWithStat, conditionalState)
-                .any {
+            || city.hasMatchingUnique(UniqueType.BuyBuildingsByProductionCost, conditionalState)
+                { it.params[1] == stat.name && matchesFilter(it.params[0], conditionalState) }
+            || city.hasMatchingUnique(UniqueType.BuyBuildingsWithStat, conditionalState) {
                     it.params[1] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
                     && city.matchesFilter(it.params[2])
                 }
-            || city.getMatchingUniques(UniqueType.BuyBuildingsForAmountStat, conditionalState)
-                .any {
+            || city.hasMatchingUnique(UniqueType.BuyBuildingsForAmountStat, conditionalState) {
                     it.params[2] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
                     && city.matchesFilter(it.params[3])
@@ -188,41 +185,44 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
     @Readonly
     private fun getSpecificBuyCost(city: City, stat: Stat): Float? {
         val conditionalState = city.state
-        return sequence {
-            yieldAll(city.getMatchingUniques(UniqueType.BuyBuildingsIncreasingCost, conditionalState)
-                .filter {
-                    it.params[2] == stat.name
+        var minCost = Float.MAX_VALUE
+        city.forEachMatchingUnique(UniqueType.BuyBuildingsIncreasingCost, conditionalState) {
+            if (!(it.params[2] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
                     && city.matchesFilter(it.params[3])
-                }.map {
-                    getCostForConstructionsIncreasingInPrice(
-                        it.params[1].toInt(),
-                        it.params[4].toInt(),
-                        city.civ.civConstructions.boughtItemsWithIncreasingPrice[name]
-                    ) * city.civ.gameInfo.speed.statCostModifiers[stat]!!
-                }
+                    )
             )
-            yieldAll(city.getMatchingUniques(UniqueType.BuyBuildingsByProductionCost, conditionalState)
-                .filter { it.params[1] == stat.name && matchesFilter(it.params[0], conditionalState) }
-                .map { (getProductionCost(city.civ, city) * it.params[2].toInt()).toFloat() }
+                return@forEachMatchingUnique
+            minCost.coerceAtMost(
+                getCostForConstructionsIncreasingInPrice(
+                    it.params[1].toInt(),
+                    it.params[4].toInt(),
+                    city.civ.civConstructions.boughtItemsWithIncreasingPrice[name]
+                ) * city.civ.gameInfo.speed.statCostModifiers[stat]!!
             )
-            if (city.getMatchingUniques(UniqueType.BuyBuildingsWithStat, conditionalState)
-                .any {
+        }
+        city.forEachMatchingUnique(UniqueType.BuyBuildingsByProductionCost, conditionalState) {
+            if (!(it.params[1] == stat.name && matchesFilter(it.params[0], conditionalState)))
+                return@forEachMatchingUnique
+            minCost.coerceAtMost((getProductionCost(city.civ, city) * it.params[2].toInt()).toFloat())
+        }
+        if (city.firstMatchingUnique(UniqueType.BuyBuildingsWithStat, conditionalState) {
                     it.params[1] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
                     && city.matchesFilter(it.params[2])
-                }
+                } != null
             ) {
-                yield(city.civ.getEra().baseUnitBuyCost * city.civ.gameInfo.speed.statCostModifiers[stat]!!)
+                minCost.coerceAtMost(city.civ.getEra().baseUnitBuyCost * city.civ.gameInfo.speed.statCostModifiers[stat]!!)
             }
-            yieldAll(city.getMatchingUniques(UniqueType.BuyBuildingsForAmountStat, conditionalState)
-                .filter {
-                    it.params[2] == stat.name
+        city.forEachMatchingUnique(UniqueType.BuyBuildingsForAmountStat, conditionalState) {
+            if (!(it.params[2] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
-                    && city.matchesFilter(it.params[3])
-                }.map { it.params[1].toInt() * city.civ.gameInfo.speed.statCostModifiers[stat]!! }
+                    && city.matchesFilter(it.params[3]))
             )
-        }.minOrNull()
+                return@forEachMatchingUnique
+            minCost.coerceAtMost(it.params[1].toInt() * city.civ.gameInfo.speed.statCostModifiers[stat]!!)
+        }
+        return minCost
     }
 
     override fun getBaseBuyCost(city: City, stat: Stat): Float? {
@@ -236,11 +236,12 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
         var cost = getBaseBuyCost(city, stat)?.toDouble() ?: return null
         val conditionalState = city.state
 
-        for (unique in city.getMatchingUniques(UniqueType.BuyItemsDiscount))
+        city.forEachMatchingUnique(UniqueType.BuyItemsDiscount) { unique->
             if (stat.name == unique.params[0])
                 cost *= unique.params[1].toPercent()
+        }
 
-        for (unique in city.getMatchingUniques(UniqueType.BuyBuildingsDiscount)) {
+        city.forEachMatchingUnique(UniqueType.BuyBuildingsDiscount) { unique->
             if (stat.name == unique.params[0] && matchesFilter(unique.params[1], conditionalState))
                 cost *= unique.params[2].toPercent()
         }

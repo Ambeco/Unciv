@@ -52,9 +52,10 @@ class CityExpansionManager : IsPartOfGameInfoSerialization {
         if (city.civ.isCityState)
             cultureToNextTile *= 1.5f   // City states grow slower, perhaps 150% cost?
 
-        for (unique in city.getMatchingUniques(UniqueType.BorderGrowthPercentage))
+        city.forEachMatchingUnique(UniqueType.BorderGrowthPercentage) {unique->
             if (city.matchesFilter(unique.params[1]))
                 cultureToNextTile *= unique.params[0].toPercent()
+        }
 
         return cultureToNextTile.roundToInt()
     }
@@ -96,7 +97,7 @@ class CityExpansionManager : IsPartOfGameInfoSerialization {
 
         cost *= city.civ.gameInfo.speed.goldCostModifier
 
-        for (unique in city.getMatchingUniques(UniqueType.TileCostPercentage)) {
+        city.forEachMatchingUnique(UniqueType.TileCostPercentage) {unique->
             if (city.matchesFilter(unique.params[1]))
                 cost *= unique.params[0].toPercent()
         }

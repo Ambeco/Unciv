@@ -289,9 +289,10 @@ class City : IsPartOfGameInfoSerialization, INamed {
     fun getResourceModifier(resource: TileResource): Float {
         var finalModifier = 1f
 
-        for (unique in getMatchingUniques(UniqueType.PercentResourceProduction))
+        forEachMatchingUnique(UniqueType.PercentResourceProduction) { unique ->
             if (resource.matchesFilter(unique.params[1], state))
                 finalModifier += unique.params[0].toFloat() / 100f
+        }
 
         return finalModifier
     }
@@ -358,10 +359,14 @@ class City : IsPartOfGameInfoSerialization, INamed {
     @Readonly fun getStrength() = cityConstructions.getBuiltBuildings().sumOf { it.cityStrength }.toFloat()
 
     /** Gets max air units that can remain in the city untransported */
-    @Readonly fun getMaxAirUnits(): Int = civ.gameInfo.ruleset.modOptions.constants.cityAirUnitCapacity +
-        getMatchingUniques(UniqueType.CarryExtraAirUnits)
-            .filter { it.params[1] == "Air" }
-            .sumOf { it.params[0].toInt() }
+    @Readonly fun getMaxAirUnits(): Int {
+        var carryExtras = 0
+        forEachMatchingUnique(UniqueType.CarryExtraAirUnits) {
+            if (it.params[1] == "Air")
+                carryExtras += it.params[0].toInt()
+        }
+        return civ.gameInfo.ruleset.modOptions.constants.cityAirUnitCapacity + carryExtras
+    }
 
     override fun toString() = name // for debug
 

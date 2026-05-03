@@ -551,11 +551,11 @@ class MapUnit : IsPartOfGameInfoSerialization {
         healing += getMatchingUniques(UniqueType.Heal, checkCivInfoUniques = true).sumOf { it.params[0].toInt() }
 
         val healingCity = tile.getTilesInDistance(1).firstOrNull {
-            it.isCityCenter() && it.getCity()!!.getMatchingUniques(UniqueType.CityHealingUnits).any()
+            it.isCityCenter() && it.getCity()!!.hasMatchingUnique(UniqueType.CityHealingUnits)
         }?.getCity()
         if (healingCity != null) {
-            for (unique in healingCity.getMatchingUniques(UniqueType.CityHealingUnits)) {
-                if (!matchesFilter(unique.params[0]) || !isAlly(healingCity.civ)) continue // only heal our units or allied units
+            healingCity.forEachMatchingUnique(UniqueType.CityHealingUnits) { unique->
+                if (!matchesFilter(unique.params[0]) || !isAlly(healingCity.civ)) return@forEachMatchingUnique // only heal our units or allied units
                 healing += unique.params[1].toInt()
             }
         }

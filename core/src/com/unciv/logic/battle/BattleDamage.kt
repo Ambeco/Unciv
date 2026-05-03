@@ -56,7 +56,7 @@ object BattleDamage {
                 modifiers[greatGeneralName] = greatGeneralBonus
 
         } else if (combatant is CityCombatant) {
-            for (unique in combatant.city.getMatchingUniques(UniqueType.StrengthForCities, conditionalState)) {
+            combatant.city.forEachMatchingUnique(UniqueType.StrengthForCities, conditionalState) { unique->
                 modifiers.add(getModifierStringFromUnique(unique), unique.params[0].toInt())
             }
         }

@@ -23,6 +23,7 @@ import com.unciv.models.ruleset.IRulesetObject
 import com.unciv.models.ruleset.PerpetualConstruction
 import com.unciv.models.ruleset.RejectionReasonType
 import com.unciv.models.ruleset.Ruleset
+import com.unciv.models.ruleset.unique.Unique
 import com.unciv.models.ruleset.unique.UniqueMap
 import com.unciv.models.ruleset.unique.UniqueTriggerActivation
 import com.unciv.models.ruleset.unique.UniqueType
@@ -131,8 +132,11 @@ class CityConstructions : IsPartOfGameInfoSerialization {
         var maintenanceCost = 0f
         val freeBuildings = city.civ.civConstructions.getFreeBuildingNames(city)
 
-        val buildingMaintenanceUniques = city.getMatchingUniques(UniqueType.BuildingMaintenance)
-            .filter { city.matchesFilter(it.params[2]) }.toList()
+        val buildingMaintenanceUniques = ArrayList<Unique>()
+        city.forEachMatchingUnique(UniqueType.BuildingMaintenance) {
+            if (city.matchesFilter(it.params[2]))
+                buildingMaintenanceUniques.add(it)
+        }
 
         for (building in getBuiltBuildings().filterNot { it.name in freeBuildings }) {
             var maintenanceForThisBuilding = building.maintenance.toFloat()
@@ -793,7 +797,7 @@ class CityConstructions : IsPartOfGameInfoSerialization {
     @Readonly
     fun isConstructionPurchaseAllowed(construction: INonPerpetualConstruction, stat: Stat, constructionBuyCost: Int): Boolean {
         return when {
-            city.isPuppet && !city.getMatchingUniques(UniqueType.MayBuyConstructionsInPuppets).any() -> false
+            city.isPuppet && !city.hasMatchingUnique(UniqueType.MayBuyConstructionsInPuppets) -> false
             city.isInResistance() -> false
             !construction.isPurchasable(city.cityConstructions) -> false    // checks via 'rejection reason'
             construction is BaseUnit && !city.canPlaceNewUnit(construction) -> false
@@ -806,8 +810,7 @@ class CityConstructions : IsPartOfGameInfoSerialization {
 
     @Readonly
     fun isConstructionPurchaseBlockedByUnit(construction: INonPerpetualConstruction): Boolean {
-        return !city.isPuppet && !city.getMatchingUniques(UniqueType.MayBuyConstructionsInPuppets)
-            .any() &&
+        return !city.isPuppet && !city.hasMatchingUnique(UniqueType.MayBuyConstructionsInPuppets) &&
             !city.isInResistance() &&
             construction.isPurchasable(city.cityConstructions) &&
             (construction is BaseUnit) && !city.canPlaceNewUnit(construction)

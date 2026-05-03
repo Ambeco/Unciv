@@ -169,7 +169,7 @@ class CityConstructionsTable(private val cityScreen: CityScreen) {
     private fun updateButtons(construction: IConstruction?) {
         if (!cityScreen.canChangeState) return
         /** [UniqueType.MayBuyConstructionsInPuppets] support - we need a buy button for civs that could buy items in puppets */
-        if (cityScreen.city.isPuppet && !cityScreen.city.getMatchingUniques(UniqueType.MayBuyConstructionsInPuppets).any()) return
+        if (cityScreen.city.isPuppet && !cityScreen.city.hasMatchingUnique(UniqueType.MayBuyConstructionsInPuppets)) return
         buttonsTable.clear()
         
         for (button in buyButtonFactory.getBuyButtons(construction)) {

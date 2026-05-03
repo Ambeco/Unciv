@@ -40,34 +40,28 @@ class BaseUnitCost(val baseUnit: BaseUnit) {
     fun canBePurchasedWithStat(city: City, stat: Stat): Boolean {
         val conditionalState = city.state
 
-        if (city.getMatchingUniques(UniqueType.BuyUnitsIncreasingCost, conditionalState)
-                    .any {
-                        it.params[2] == stat.name
-                                && baseUnit.matchesFilter(it.params[0], conditionalState)
-                                && city.matchesFilter(it.params[3])
-                    }
+        if (city.hasMatchingUnique(UniqueType.BuyUnitsIncreasingCost, conditionalState) {
+                it.params[2] == stat.name
+                && baseUnit.matchesFilter(it.params[0], conditionalState)
+                && city.matchesFilter(it.params[3]) }
         ) return true
 
-        if (city.getMatchingUniques(UniqueType.BuyUnitsByProductionCost, conditionalState)
-                    .any { it.params[1] == stat.name && baseUnit.matchesFilter(it.params[0], conditionalState) }
+        if (city.hasMatchingUnique(UniqueType.BuyUnitsByProductionCost, conditionalState)
+                { it.params[1] == stat.name && baseUnit.matchesFilter(it.params[0], conditionalState) }
         )
             return true
 
-        if (city.getMatchingUniques(UniqueType.BuyUnitsWithStat, conditionalState)
-                    .any {
-                        it.params[1] == stat.name
-                                && baseUnit.matchesFilter(it.params[0], conditionalState)
-                                && city.matchesFilter(it.params[2])
-                    }
+        if (city.hasMatchingUnique(UniqueType.BuyUnitsWithStat, conditionalState) {
+                it.params[1] == stat.name
+                && baseUnit.matchesFilter(it.params[0], conditionalState)
+                && city.matchesFilter(it.params[2]) }
         )
             return true
 
-        if (city.getMatchingUniques(UniqueType.BuyUnitsForAmountStat, conditionalState)
-                    .any {
-                        it.params[2] == stat.name
-                                && baseUnit.matchesFilter(it.params[0], conditionalState)
-                                && city.matchesFilter(it.params[3])
-                    }
+        if (city.hasMatchingUnique(UniqueType.BuyUnitsForAmountStat, conditionalState) {
+                it.params[2] == stat.name
+                && baseUnit.matchesFilter(it.params[0], conditionalState)
+                && city.matchesFilter(it.params[3])}
         )
             return true
 
@@ -79,14 +73,14 @@ class BaseUnitCost(val baseUnit: BaseUnit) {
         var cost = baseUnit.getBaseBuyCost(city, stat)?.toDouble() ?: return null
         val conditionalState = city.state
 
-        for (unique in city.getMatchingUniques(UniqueType.BuyUnitsDiscount)) {
+        city.forEachMatchingUnique(UniqueType.BuyUnitsDiscount) { unique->
             if (stat.name == unique.params[0] && baseUnit.matchesFilter(unique.params[1], conditionalState))
                 cost *= unique.params[2].toPercent()
         }
-        for (unique in city.getMatchingUniques(UniqueType.BuyItemsDiscount))
+        city.forEachMatchingUnique(UniqueType.BuyItemsDiscount) { unique->
             if (stat.name == unique.params[0])
                 cost *= unique.params[1].toPercent()
-
+        }
         return (cost / 10f).toInt() * 10
     }
 
@@ -94,40 +88,38 @@ class BaseUnitCost(val baseUnit: BaseUnit) {
     @Readonly
     fun getBaseBuyCosts(city: City, stat: Stat): Sequence<Float> {
         val conditionalState = city.state
-        return sequence {
-            yieldAll(city.getMatchingUniques(UniqueType.BuyUnitsIncreasingCost, conditionalState)
-                .filter {
-                    it.params[2] == stat.name
-                            && baseUnit.matchesFilter(it.params[0], conditionalState)
-                            && city.matchesFilter(it.params[3])
-                }.map {
-                    baseUnit.getCostForConstructionsIncreasingInPrice(
-                        it.params[1].toInt(),
-                        it.params[4].toInt(),
-                        city.civ.civConstructions.boughtItemsWithIncreasingPrice[baseUnit.name]
-                    ) * city.civ.gameInfo.speed.statCostModifiers[stat]!!
-                }
-            )
-            yieldAll(city.getMatchingUniques(UniqueType.BuyUnitsByProductionCost, conditionalState)
-                .filter { it.params[1] == stat.name && baseUnit.matchesFilter(it.params[0], conditionalState) }
-                .map { (getProductionCost(city.civ, city) * it.params[2].toInt()).toFloat() }
-            )
-
-            if (city.getMatchingUniques(UniqueType.BuyUnitsWithStat, conditionalState)
-                        .any {
-                            it.params[1] == stat.name
-                                    && baseUnit.matchesFilter(it.params[0], conditionalState)
-                                    && city.matchesFilter(it.params[2])
-                        }
-            ) yield(city.civ.getEra().baseUnitBuyCost * city.civ.gameInfo.speed.statCostModifiers[stat]!!)
-
-            yieldAll(city.getMatchingUniques(UniqueType.BuyUnitsForAmountStat, conditionalState)
-                .filter {
-                    it.params[2] == stat.name
-                            && baseUnit.matchesFilter(it.params[0], conditionalState)
-                            && city.matchesFilter(it.params[3])
-                }.map { it.params[1].toInt() * city.civ.gameInfo.speed.statCostModifiers[stat]!! }
-            )
+        val costs = ArrayList<Float>()
+        city.forEachMatchingUnique(UniqueType.BuyUnitsIncreasingCost, conditionalState) {
+            if (!(it.params[2] == stat.name
+                        && baseUnit.matchesFilter(it.params[0], conditionalState)
+                        && city.matchesFilter(it.params[3])))
+                return@forEachMatchingUnique
+            val cost = baseUnit.getCostForConstructionsIncreasingInPrice(
+                it.params[1].toInt(),
+                it.params[4].toInt(),
+                city.civ.civConstructions.boughtItemsWithIncreasingPrice[baseUnit.name]
+                ) * city.civ.gameInfo.speed.statCostModifiers[stat]!!
+            costs.add(cost)
         }
+       city.forEachMatchingUnique(UniqueType.BuyUnitsByProductionCost, conditionalState) {
+           if (!(it.params[1] == stat.name && baseUnit.matchesFilter(it.params[0], conditionalState)))
+               return@forEachMatchingUnique
+           costs.add((getProductionCost(city.civ, city) * it.params[2].toInt()).toFloat())
+       }
+        city.forEachMatchingUnique(UniqueType.BuyUnitsWithStat, conditionalState) {
+            if (!(it.params[1] == stat.name
+                                    && baseUnit.matchesFilter(it.params[0], conditionalState)
+                                    && city.matchesFilter(it.params[2])))
+                return@forEachMatchingUnique
+            costs.add(city.civ.getEra().baseUnitBuyCost * city.civ.gameInfo.speed.statCostModifiers[stat]!!)
+        }
+        city.forEachMatchingUnique(UniqueType.BuyUnitsForAmountStat, conditionalState) {
+            if (!(it.params[2] == stat.name
+                            && baseUnit.matchesFilter(it.params[0], conditionalState)
+                            && city.matchesFilter(it.params[3])))
+                return@forEachMatchingUnique
+            costs.add(it.params[1].toInt() * city.civ.gameInfo.speed.statCostModifiers[stat]!!)
+        }
+        return costs.asSequence()
     }
 }

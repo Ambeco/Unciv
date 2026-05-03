@@ -349,10 +349,10 @@ object Battle {
 
         val cityWithReligion =
             civUnit.getTile().getTilesInDistance(4).firstOrNull {
-                it.isCityCenter() && it.getCity()!!.getMatchingUniques(UniqueType.KillUnitPlunderNearCity, gameContext).any()
+                it.isCityCenter() && it.getCity()!!.hasMatchingUnique(UniqueType.KillUnitPlunderNearCity, gameContext)
             }?.getCity()
-        if (cityWithReligion != null) {
-            bonusUniques.addAll(cityWithReligion.getMatchingUniques(UniqueType.KillUnitPlunderNearCity, gameContext))
+        cityWithReligion?.forEachMatchingUnique(UniqueType.KillUnitPlunderNearCity, gameContext) {
+            bonusUniques.add(it)
         }
         return bonusUniques
     }

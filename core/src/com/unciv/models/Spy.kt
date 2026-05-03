@@ -424,24 +424,30 @@ class Spy private constructor() : IsPartOfGameInfoSerialization {
      */
     @Readonly
     fun getEfficiencyModifier(): Double {
-        val friendlyUniques: Sequence<Unique>
-        val enemyUniques: Sequence<Unique>
+        val friendlyUniques = ArrayList<Unique>()
+        val enemyUniques = ArrayList<Unique>()
         val city = getCityOrNull()
         when {
             city == null -> {
                 // Spy is in hideout - effectiveness won't matter
-                friendlyUniques = civInfo.getMatchingUniques(UniqueType.SpyEffectiveness)
-                enemyUniques = emptySequence()
+                civInfo.forEachMatchingUnique(UniqueType.SpyEffectiveness) {
+                    friendlyUniques.add(it)
+                }
             }
             city.civ == civInfo -> {
                 // Spy is in our own city
-                friendlyUniques = city.getMatchingUniques(UniqueType.SpyEffectiveness, city.state, includeCivUniques = true)
-                enemyUniques = emptySequence()
+                city.forEachMatchingUnique(UniqueType.SpyEffectiveness, city.state, includeCivUniques = true) {
+                    friendlyUniques.add(it)
+                }
             }
             else -> {
                 // Spy is active in a foreign city
-                friendlyUniques = civInfo.getMatchingUniques(UniqueType.SpyEffectiveness)
-                enemyUniques = city.getMatchingUniques(UniqueType.EnemySpyEffectiveness, city.state, includeCivUniques = true)
+                civInfo.forEachMatchingUnique(UniqueType.SpyEffectiveness) {
+                    friendlyUniques.add(it)
+                }
+                city.forEachMatchingUnique(UniqueType.SpyEffectiveness, city.state, includeCivUniques = true) {
+                    enemyUniques.add(it)
+                }
             }
         }
         var totalEfficiency = 1.0

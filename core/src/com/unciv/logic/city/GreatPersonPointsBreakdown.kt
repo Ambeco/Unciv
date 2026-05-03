@@ -54,23 +54,27 @@ class GreatPersonPointsBreakdown private constructor(private val ruleset: Rulese
          *  and exposed to autoAssignPopulation via [getGreatPersonPercentageBonus]
          */
         @Readonly
-        private fun getPercentagesApplyingToAllGP(city: City) = sequence {
+        private fun getPercentagesApplyingToAllGP(city: City): Sequence<AllGPPercentageEntry>  {
+            val gpPercentages = ArrayList<AllGPPercentageEntry>()
             // Now add boni for GreatPersonPointPercentage
-            for (unique in city.getMatchingUniques(UniqueType.GreatPersonPointPercentage)) {
-                if (!city.matchesFilter(unique.params[1])) continue
-                yield(AllGPPercentageEntry(getUniqueSourceName(unique), guessPediaLink(unique), unique.params[0].toInt()))
+            city.forEachMatchingUnique(UniqueType.GreatPersonPointPercentage) { unique->
+                if (!city.matchesFilter(unique.params[1])) return@forEachMatchingUnique
+                gpPercentages.add(AllGPPercentageEntry(getUniqueSourceName(unique), guessPediaLink(unique), unique.params[0].toInt()))
             }
 
             // Now add boni for GreatPersonBoostWithFriendship (Sweden UP)
             val civ = city.civ
-            for (otherCiv in civ.getKnownCivs()) {
+            civ.forEachKnownCiv { otherCiv->
                 if (!civ.getDiplomacyManager(otherCiv)!!.hasFlag(DiplomacyFlags.DeclarationOfFriendship))
-                    continue
-                val boostUniques = civ.getMatchingUniques(UniqueType.GreatPersonBoostWithFriendship) +
-                    otherCiv.getMatchingUniques(UniqueType.GreatPersonBoostWithFriendship)
-                for (unique in boostUniques)
-                    yield(AllGPPercentageEntry("Declaration of Friendship", null, unique.params[0].toInt()))
+                    return@forEachKnownCiv
+                civ.forEachMatchingUnique(UniqueType.GreatPersonBoostWithFriendship) { unique->
+                    gpPercentages.add(AllGPPercentageEntry("Declaration of Friendship", null, unique.params[0].toInt()))
+                }
+                otherCiv.forEachMatchingUnique(UniqueType.GreatPersonBoostWithFriendship) { unique->
+                    gpPercentages.add(AllGPPercentageEntry("Declaration of Friendship", null, unique.params[0].toInt()))
+                }
             }
+            return gpPercentages.asSequence()
         }
 
         /** Aggregate all percentage bonuses that apply to all GPP
