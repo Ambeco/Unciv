@@ -136,7 +136,7 @@ class Unique(val text: String, val sourceObjectType: UniqueTarget? = null, val s
     }
     
     @Readonly
-    fun forEachMultiplied(gameContext: GameContext, op:(Unique)->Unit) {
+    inline fun forEachMultiplied(gameContext: GameContext, op:(Unique)->Unit) {
         val multiplier = getUniqueMultiplier(gameContext)
         for (j in 0..<multiplier)
             op(this)
