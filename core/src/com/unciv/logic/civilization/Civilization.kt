@@ -46,6 +46,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import com.unciv.logic.automation.Timers.Companion.timeThis
+import com.unciv.models.ruleset.unique.UniqueMap.Companion.MATCH_ANY_UNIQUE
 
 enum class Proximity : IsPartOfGameInfoSerialization {
     None, // ie no cities
@@ -575,7 +576,7 @@ class Civilization : IsPartOfGameInfoSerialization {
 
     @Readonly
     fun hasUnique(uniqueType: UniqueType, gameContext: GameContext = state) =
-        getMatchingUniques(uniqueType, gameContext).any()
+        firstMatchingUnique(uniqueType, gameContext) != null
 
     // Does not return local uniques, only global ones.
     /** Destined to replace getMatchingUniques, gradually, as we fill the enum */
@@ -602,6 +603,23 @@ class Civilization : IsPartOfGameInfoSerialization {
         yieldAll(gameInfo.getGlobalUniques().getMatchingUniques(uniqueType, gameContext))
     }
 
+    @Readonly
+    fun firstMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, predicate: (unique: Unique)->Boolean=MATCH_ANY_UNIQUE): Unique? {
+        val unique = nation.firstMatchingUnique(uniqueType, gameContext, predicate)
+        if (unique != null) return unique
+        for (i in 0..<cities.size) {
+            val unique = cities[i].firstMatchingUniqueWithNonLocalEffects(uniqueType, gameContext, predicate)
+            if (unique != null) return unique
+        }
+        return policies.policyUniques.firstMatchingUnique(uniqueType, gameContext, predicate)
+            ?: tech.techUniques.firstMatchingUnique(uniqueType, gameContext, predicate)
+            ?: temporaryUniques.firstMatchingUnique(uniqueType, gameContext, predicate)
+            ?: getEra().firstMatchingUnique(uniqueType, gameContext, predicate)
+            ?: cityStateFunctions.firstUniqueProvidedByCityStates(uniqueType, gameContext, predicate)
+            ?: religionManager.religion?.founderBeliefUniqueMap?.firstMatchingUnique(uniqueType, gameContext, predicate)
+            ?: civResourcesUniqueMap.firstMatchingUnique(uniqueType, gameContext, predicate)
+            ?: gameInfo.getGlobalUniques().firstMatchingUnique(uniqueType, gameContext, predicate)
+    }
     @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, op: (unique: Unique)->Unit) {
         nation.forEachMatchingUnique(uniqueType, gameContext, op)

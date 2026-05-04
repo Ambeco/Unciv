@@ -25,6 +25,7 @@ import com.unciv.models.ruleset.Building
 import com.unciv.models.ruleset.tile.TileResource
 import com.unciv.models.ruleset.unique.GameContext
 import com.unciv.models.ruleset.unique.Unique
+import com.unciv.models.ruleset.unique.UniqueMap.Companion.MATCH_ANY_UNIQUE
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.ruleset.unit.BaseUnit
 import com.unciv.models.stats.GameResource
@@ -626,6 +627,25 @@ class City : IsPartOfGameInfoSerialization, INamed {
     }
 
     @Readonly
+    fun hasMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, includeCivUniques: Boolean = true, predicate: (unique: Unique)->Boolean=MATCH_ANY_UNIQUE)
+        = firstMatchingUnique(uniqueType, gameContext, includeCivUniques, predicate) != null
+    @Readonly
+    fun firstMatchingUnique(
+        uniqueType: UniqueType,
+        gameContext: GameContext = state,
+        includeCivUniques: Boolean=true,
+        predicate: (unique: Unique)->Boolean=MATCH_ANY_UNIQUE,
+    ): Unique? {
+        if (includeCivUniques) {
+            return civ.firstMatchingUnique(uniqueType, gameContext, predicate)
+                ?: firstLocalMatchingUnique(uniqueType, gameContext, predicate)
+        } else {
+            return cityConstructions.builtBuildingUniqueMap.firstMatchingUnique(uniqueType, state, isTimedUniqueFilter, predicate)
+                ?: religion.firstMatchingUnique(uniqueType, state, isTimedUniqueFilter, predicate)
+        }
+    }
+
+    @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, op: (unique: Unique)->Unit)
         = forEachMatchingUnique(uniqueType, state, true, op)
     @Readonly
@@ -660,6 +680,14 @@ class City : IsPartOfGameInfoSerialization, INamed {
 
     // Uniques special to this city
     @Readonly
+    fun hasLocalMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, predicate: (unique: Unique)->Boolean=MATCH_ANY_UNIQUE)
+        = firstLocalMatchingUnique(uniqueType, gameContext, predicate) != null
+    @Readonly
+    fun firstLocalMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, predicate: (unique: Unique)->Boolean): Unique? {
+        return cityConstructions.builtBuildingUniqueMap.firstMatchingUnique(uniqueType, gameContext, isLocalUniqueFilter, predicate)
+            ?: religion.firstMatchingUnique(uniqueType, gameContext, predicate)
+    }
+    @Readonly
     fun forEachLocalMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, op: (unique: Unique)->Unit) {
         cityConstructions.builtBuildingUniqueMap.forEachMatchingUnique(uniqueType, gameContext, isLocalUniqueFilter, op)
         religion.forEachMatchingUnique(uniqueType, gameContext, op)
@@ -679,11 +707,19 @@ class City : IsPartOfGameInfoSerialization, INamed {
 
     // Uniques coming from this city, but that should be provided globally
     @Readonly
+    fun firstMatchingUniqueWithNonLocalEffects(uniqueType: UniqueType, gameContext: GameContext, predicate: (unique: Unique)->Boolean): Unique?
+        = cityConstructions.builtBuildingUniqueMap.firstMatchingUnique(uniqueType, gameContext, nonLocalUniqueFilter, predicate)
+    @Readonly
     fun forEachMatchingUniqueWithNonLocalEffects(uniqueType: UniqueType, gameContext: GameContext, op: (unique: Unique)->Unit)
         = cityConstructions.builtBuildingUniqueMap.forEachMatchingUnique(uniqueType, gameContext, nonLocalUniqueFilter, op)
 
     // All uniques affecting this city: both local uniques and civ uniques.
     // This replaces LocalUniqueCache#forCityGetMatchingUniques
+    @Readonly
+    fun firstAffectingMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, predicate: (unique: Unique)->Boolean): Unique? {
+        return firstLocalMatchingUnique(uniqueType, gameContext, predicate)
+            ?: civ.firstMatchingUnique(uniqueType, gameContext, predicate)
+    }
     @Readonly
     fun forEachAffectingMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, op: (unique: Unique)->Unit) {
         forEachLocalMatchingUnique(uniqueType, gameContext, op)

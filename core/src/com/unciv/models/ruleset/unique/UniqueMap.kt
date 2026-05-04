@@ -1,3 +1,5 @@
+@file:Suppress("ReplaceManualRangeWithIndicesCalls") // performance critical, so we iterate by index to avoid the iterator
+
 package com.unciv.models.ruleset.unique
 
 import yairm210.purity.annotations.Readonly
@@ -93,8 +95,18 @@ open class UniqueMap() {
             }
 
     @Readonly
+    fun firstMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, predicate: (Unique)->Boolean=MATCH_ANY_UNIQUE): Unique? {
+        val list = typedUniqueMap[uniqueType] ?: return null
+        return firstMatchingUnique(list, gameContext, MATCH_ANY_UNIQUE, predicate)
+    }
+    @Readonly
+    fun firstMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, filter:(Unique)->Boolean=MATCH_ANY_UNIQUE, predicate: (Unique)->Boolean=MATCH_ANY_UNIQUE): Unique? {
+        val list = typedUniqueMap[uniqueType] ?: return null
+        return firstMatchingUnique(list, gameContext, filter, predicate)
+    }
+    @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, op: (Unique)->Unit)
-        = forEachMatchingUnique(uniqueType, gameContext, NO_UNIQUE_FILTER, op)
+        = forEachMatchingUnique(uniqueType, gameContext, MATCH_ANY_UNIQUE, op)
     @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, filter:(Unique)->Boolean, op: (Unique)->Unit) {
         val list = typedUniqueMap[uniqueType] ?: return
@@ -116,9 +128,25 @@ open class UniqueMap() {
             }
 
     @Readonly
+    fun firstMatchingTagUnique(uniqueTag: String, gameContext: GameContext, filter:(Unique)->Boolean=MATCH_ANY_UNIQUE, predicate: (Unique)->Boolean): Unique? {
+        val list = tagUniqueMap[uniqueTag] ?: return null
+        return firstMatchingUnique(list, gameContext, filter, predicate)
+    }
+    @Readonly
     fun forEachMatchingTagUnique(uniqueTag: String, gameContext: GameContext, filter:(Unique)->Boolean, op: (Unique)->Unit) {
         val list = tagUniqueMap[uniqueTag] ?: return
         forEachMatchingUnique(list, gameContext, filter, op)
+    }
+        @Readonly
+    inline fun firstMatchingUnique(list: List<Unique>, gameContext: GameContext, filter:(Unique)->Boolean, predicate: (Unique)->Boolean): Unique? {
+        for (i in 0..<list.size) {
+            val unique = list[i]
+            if (unique.isTimedTriggerable || !filter(unique) || !unique.conditionalsApply(gameContext))
+                continue
+            if (predicate(unique))
+                return unique
+        }
+        return null
     }
 
     @Readonly
@@ -132,19 +160,23 @@ open class UniqueMap() {
     }
     
     @Readonly
-    fun hasMatchingUnique(uniqueType: UniqueType, state: GameContext = GameContext.EmptyState) = 
-        getUniques(uniqueType).any { it.conditionalsApply(state) }
-
+    fun hasMatchingUnique(uniqueType: UniqueType, state: GameContext = GameContext.EmptyState, predicate:(Unique)->Boolean=MATCH_ANY_UNIQUE) = 
+        firstMatchingUnique(uniqueType, state, predicate ) != null
     @Readonly
-    fun hasMatchingTagUnique(uniqueTag: String, state: GameContext = GameContext.EmptyState) =
-        getTagUniques(uniqueTag)
-            .any { it.conditionalsApply(state) }
+    fun hasMatchingTagUnique(uniqueTag: String, state: GameContext = GameContext.EmptyState, predicate:(Unique)->Boolean=MATCH_ANY_UNIQUE) =
+        firstMatchingTagUnique(uniqueTag, state, MATCH_ANY_UNIQUE, predicate ) != null
+
 
     @Readonly
     fun getAllUniques() = tagUniqueMap.values.asSequence().flatten()
-    
+
     @Readonly
-    // UniqueMap lacks a way to iterate over all Uniques without allocations, so this is not *dramatically* faster than getLocalTriggeredUniques
+    // HashMap lacks a way to iterate over all Uniques without allocating an iterator, so this is not *dramatically* faster than getLocalTriggeredUniques
+    fun firstUnique(op: (Unique)->Boolean) = getAllUniques().firstOrNull(op)
+    @Readonly
+    fun firstUnique(filter: (Unique)->Boolean, predicate: (Unique)->Boolean) = getAllUniques().filter(filter).firstOrNull(predicate)
+    @Readonly
+    // HashMap lacks a way to iterate over all Uniques without allocations, so this is not *dramatically* faster than getLocalTriggeredUniques
     fun forEachUnique(op: (Unique)->Unit) = getAllUniques().forEach(op)
     @Readonly
     fun forEachUnique(filter: (Unique)->Boolean, op: (Unique)->Unit) = getAllUniques().filter(filter).forEach(op)
@@ -159,6 +191,6 @@ open class UniqueMap() {
     
     companion object{
         val EMPTY = UniqueMap()
-        val NO_UNIQUE_FILTER = { _: Unique -> true }
+        val MATCH_ANY_UNIQUE = { _: Unique -> true }
     }
 }

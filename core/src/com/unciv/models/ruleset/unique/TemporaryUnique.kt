@@ -1,6 +1,9 @@
+@file:Suppress("ReplaceManualRangeWithIndicesCalls") // performance critical, so we iterate by index to avoid the iterator
+
 package com.unciv.models.ruleset.unique
 
 import com.unciv.logic.IsPartOfGameInfoSerialization
+import com.unciv.models.ruleset.unique.UniqueMap.Companion.MATCH_ANY_UNIQUE
 import yairm210.purity.annotations.Readonly
 
 class TemporaryUnique() : IsPartOfGameInfoSerialization {
@@ -48,4 +51,14 @@ fun ArrayList<TemporaryUnique>.forEachMatchingUnique(uniqueType: UniqueType, gam
         if (unique.type == uniqueType && unique.conditionalsApply(gameContext))
             unique.forEachMultiplied(gameContext, op)
     }
+}
+
+@Readonly
+fun ArrayList<TemporaryUnique>.firstMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, predicate: (unique: Unique)->Boolean=MATCH_ANY_UNIQUE): Unique? {
+    for (i in 0..<size) {
+        val unique = get(i).uniqueObject
+        if (unique.type == uniqueType && unique.conditionalsApply(gameContext) && predicate(unique))
+            return unique
+    }
+    return null
 }

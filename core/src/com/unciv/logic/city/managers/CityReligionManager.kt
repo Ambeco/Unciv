@@ -9,7 +9,7 @@ import com.unciv.models.Counter
 import com.unciv.models.Religion
 import com.unciv.models.ruleset.unique.GameContext
 import com.unciv.models.ruleset.unique.Unique
-import com.unciv.models.ruleset.unique.UniqueMap.Companion.NO_UNIQUE_FILTER
+import com.unciv.models.ruleset.unique.UniqueMap.Companion.MATCH_ANY_UNIQUE
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.ui.components.extensions.toPercent
 import yairm210.purity.annotations.Readonly
@@ -69,8 +69,17 @@ class CityReligionManager : IsPartOfGameInfoSerialization {
     }
 
     @Readonly
+    fun hasMatchingUnique(uniqueType: UniqueType, gameContext: GameContext=city.state, predicate:(Unique)->Boolean = MATCH_ANY_UNIQUE)
+        = firstMatchingUnique(uniqueType, gameContext, MATCH_ANY_UNIQUE, predicate) != null
+    @Readonly
+    fun firstMatchingUnique(uniqueType: UniqueType, gameContext: GameContext=city.state, filter:(Unique)->Boolean, predicate: (unique: Unique)->Boolean= MATCH_ANY_UNIQUE): Unique? {
+        val majorityReligion = getMajorityReligion() ?: return null
+        return majorityReligion.followerBeliefUniqueMap.firstMatchingUnique(uniqueType, gameContext, filter, predicate)
+    }
+
+    @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext=city.state, op: (unique: Unique)->Unit)
-        = forEachMatchingUnique(uniqueType, gameContext, NO_UNIQUE_FILTER, op)
+        = forEachMatchingUnique(uniqueType, gameContext, MATCH_ANY_UNIQUE, op)
     @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext=city.state, filter:(Unique)->Boolean, op: (unique: Unique)->Unit) {
         val majorityReligion = getMajorityReligion() ?: return
@@ -81,6 +90,14 @@ class CityReligionManager : IsPartOfGameInfoSerialization {
     fun getAllUniques(): Sequence<Unique> {
         val majorityReligion = getMajorityReligion() ?: return emptySequence()
         return majorityReligion.followerBeliefUniqueMap.getAllUniques()
+    }
+
+    @Readonly
+    fun hasUnique(predicate:(Unique)->Boolean) = firstUnique(MATCH_ANY_UNIQUE, predicate) != null
+    @Readonly
+    fun firstUnique(filter:(Unique)->Boolean, predicate: (unique: Unique)->Boolean): Unique? {
+        val majorityReligion = getMajorityReligion() ?: return null
+        return majorityReligion.followerBeliefUniqueMap.firstUnique(filter, predicate)
     }
 
     @Readonly

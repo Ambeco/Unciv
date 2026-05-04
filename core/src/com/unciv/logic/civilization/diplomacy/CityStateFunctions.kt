@@ -13,6 +13,7 @@ import com.unciv.models.ruleset.nation.Nation
 import com.unciv.models.ruleset.tile.ResourceSupplyList
 import com.unciv.models.ruleset.unique.GameContext
 import com.unciv.models.ruleset.unique.Unique
+import com.unciv.models.ruleset.unique.UniqueMap
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.ruleset.unit.BaseUnit
 import com.unciv.models.stats.Stat
@@ -831,21 +832,35 @@ class CityStateFunctions(val civInfo: Civilization) {
     }
 
     @Readonly
+    fun uniqueMapForCityState(civ: Civilization): UniqueMap? {
+        if (!civ.isCityState) return null
+        // We don't use DiplomacyManager.getRelationshipLevel for performance reasons - it tries to calculate getTributeWillingness which is heavy
+        val relationshipLevel =
+            if (civ.allyCiv == civInfo) RelationshipLevel.Ally
+            else if (civ.getDiplomacyManager(civInfo)!!.getInfluence() >= 30) RelationshipLevel.Friend
+            else RelationshipLevel.Neutral
+        return when (relationshipLevel) {
+            RelationshipLevel.Ally -> civ.cityStateType.allyBonusUniqueMap
+            RelationshipLevel.Friend -> civ.cityStateType.friendBonusUniqueMap
+            else -> null
+        }
+    }
+
+    @Readonly
+    fun firstUniqueProvidedByCityStates(uniqueType: UniqueType, gameContext: GameContext, predicate: (unique: Unique) -> Boolean): Unique? {
+        if (civInfo.isCityState) return null
+        for (civ in civInfo.getKnownCivs()) {
+            val unique = uniqueMapForCityState(civ)?.firstMatchingUnique(uniqueType, gameContext, predicate)
+            if (unique != null) return unique
+        }
+        return null
+    }
+
+    @Readonly
     fun forEachUniqueProvidedByCityStates(uniqueType: UniqueType, gameContext: GameContext, op: (unique: Unique) -> Unit) {
-        if (civInfo.isCityState) return 
+        if (civInfo.isCityState) return
         civInfo.forEachKnownCiv {
-            if (!it.isCityState) return@forEachKnownCiv
-            // We don't use DiplomacyManager.getRelationshipLevel for performance reasons - it tries to calculate getTributeWillingness which is heavy
-            val relationshipLevel =
-                if (it.allyCiv == civInfo) RelationshipLevel.Ally
-                else if (it.getDiplomacyManager(civInfo)!!.getInfluence() >= 30) RelationshipLevel.Friend
-                else RelationshipLevel.Neutral
-            val cityStateUniqueMap = when (relationshipLevel) {
-                RelationshipLevel.Ally -> it.cityStateType.allyBonusUniqueMap
-                RelationshipLevel.Friend -> it.cityStateType.friendBonusUniqueMap
-                else -> return@forEachKnownCiv
-            }
-            cityStateUniqueMap.forEachMatchingUnique(uniqueType, gameContext, op)
+            uniqueMapForCityState(it)?.forEachMatchingUnique(uniqueType, gameContext, op)
         }
     }
 

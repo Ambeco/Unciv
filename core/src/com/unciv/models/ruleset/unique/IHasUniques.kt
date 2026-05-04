@@ -6,6 +6,7 @@ import com.unciv.models.ruleset.Ruleset
 import com.unciv.models.ruleset.tech.Era
 import com.unciv.models.ruleset.tech.TechColumn
 import com.unciv.models.ruleset.tech.Technology
+import com.unciv.models.ruleset.unique.UniqueMap.Companion.MATCH_ANY_UNIQUE
 import com.unciv.models.stats.INamed
 import com.unciv.ui.components.extensions.toPercent
 import yairm210.purity.annotations.Readonly
@@ -48,6 +49,10 @@ interface IHasUniques : INamed {
         replaceWith = ReplaceWith("forEachMatchingUnique"))
     fun getMatchingUniques(uniqueType: UniqueType, state: GameContext = GameContext.EmptyState) =
         uniqueMap.getMatchingUniques(uniqueType, state)
+
+    @Readonly
+    fun firstMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, filter:(Unique)->Boolean=MATCH_ANY_UNIQUE, predicate: (unique: Unique)->Boolean=MATCH_ANY_UNIQUE)
+        = uniqueMap.firstMatchingUnique(uniqueType, gameContext, filter, predicate)
 
     @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, filter:(Unique)->Boolean, op: (unique: Unique)->Unit)

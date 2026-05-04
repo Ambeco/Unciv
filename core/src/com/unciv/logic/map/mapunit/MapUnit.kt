@@ -30,6 +30,7 @@ import java.text.DecimalFormat
 import kotlin.math.pow
 import kotlin.math.ulp
 import com.unciv.logic.automation.Timers.Companion.timeThis
+import com.unciv.models.ruleset.unique.UniqueMap.Companion.MATCH_ANY_UNIQUE
 
 
 /**
@@ -323,6 +324,19 @@ class MapUnit : IsPartOfGameInfoSerialization {
         if (checkCivInfoUniques)
             yieldAll(civ.getMatchingUniques(uniqueType, gameContext))
     }
+    @Readonly
+    fun firstMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = cache.state, op: (Unique)->Boolean=MATCH_ANY_UNIQUE)
+        = firstMatchingUnique(uniqueType, gameContext, checkCivInfoUniques = false, op)
+    @Readonly
+    fun firstMatchingUnique(
+        uniqueType: UniqueType,
+        gameContext: GameContext = cache.state,
+        checkCivInfoUniques: Boolean,
+        predicate: (Unique)->Boolean=MATCH_ANY_UNIQUE,
+    ): Unique? {
+        return tempUniquesMap.firstMatchingUnique(uniqueType, gameContext, predicate)
+            ?: if (checkCivInfoUniques) civ.firstMatchingUnique(uniqueType, gameContext, predicate) else null
+    }
 
     @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = cache.state, op: (Unique)->Unit)
@@ -344,9 +358,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
         uniqueType: UniqueType,
         gameContext: GameContext = cache.state,
         checkCivInfoUniques: Boolean = false
-    ): Boolean {
-        return getMatchingUniques(uniqueType, gameContext, checkCivInfoUniques).any()
-    }
+    ): Boolean = firstMatchingUnique(uniqueType, gameContext, checkCivInfoUniques) != null
 
     @Readonly
     fun getTriggeredUniques(
