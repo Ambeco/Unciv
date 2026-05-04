@@ -755,26 +755,6 @@ class City : IsPartOfGameInfoSerialization, INamed {
     }
 
     @Readonly
-    fun forEachTriggeredUnique(
-        trigger: UniqueType,
-        gameContext: GameContext = state,
-        triggerFilter: (Unique) -> Boolean = { true },
-        includeCivUniques: Boolean = true,
-        op: (Unique) -> Unit) {
-        if (includeCivUniques) {
-            civ.forEachTriggeredUnique(trigger, gameContext, triggerFilter, op)
-            forEachLocalTriggeredUnique(trigger, gameContext, triggerFilter, op)
-        }
-        else {
-            fun filter(unique: Unique): Boolean  =
-                unique.getModifiers(trigger).any(triggerFilter) && unique.conditionalsApply(gameContext)
-            fun multipliedOp(unique: Unique) = unique.forEachMultiplied(gameContext, op)
-            cityConstructions.builtBuildingUniqueMap.forEachUnique(::filter, ::multipliedOp)
-            religion.forEachUnique(::filter, ::multipliedOp)
-        }
-    }
-
-    @Readonly
     fun getLocalTriggeredUniques(trigger: UniqueType, gameContext: GameContext = state,
         triggerFilter: (Unique) -> Boolean = { true }): Sequence<Unique> {
         val uniques =
@@ -785,10 +765,25 @@ class City : IsPartOfGameInfoSerialization, INamed {
     }
 
     @Readonly
-    fun forEachLocalTriggeredUnique(trigger: UniqueType, gameContext: GameContext = state, op: (Unique)->Unit)
-        = forEachLocalTriggeredUnique(trigger, gameContext, {true}, op)
+    fun firstLocalTriggeredUnique(trigger: UniqueType, gameContext: GameContext = state, op: (Unique)->Boolean)
+        = firstLocalTriggeredUnique(trigger, gameContext, UniqueMap.MATCH_ANY_UNIQUE, op)
+
     @Readonly
+    fun forEachLocalTriggeredUnique(trigger: UniqueType, gameContext: GameContext = state, op: (Unique)->Unit)
+        = forEachLocalTriggeredUnique(trigger, gameContext, UniqueMap.MATCH_ANY_UNIQUE, op)
+    
     // UniqueMap lacks a way to iterate over all Uniques without allocations, so this is not *dramatically* faster than getLocalTriggeredUniques
+    @Readonly
+    fun firstLocalTriggeredUnique(trigger: UniqueType, gameContext: GameContext = state,
+                                  triggerFilter: (Unique) -> Boolean, op: (Unique)->Boolean): Unique? {
+        fun uniqueFilter(unique: Unique): Boolean
+            = unique.getModifiers(trigger).any(triggerFilter) && unique.conditionalsApply(gameContext)
+        fun buildingFilter(unique: Unique): Boolean
+            = unique.isLocalEffect && uniqueFilter(unique)
+        return cityConstructions.builtBuildingUniqueMap.firstUnique(::buildingFilter, op)
+            ?: religion.firstUnique(::uniqueFilter, op)
+    }
+    @Readonly
     fun forEachLocalTriggeredUnique(trigger: UniqueType, gameContext: GameContext = state,
                                  triggerFilter: (Unique) -> Boolean, op: (Unique)->Unit) {
         fun uniqueFilter(unique: Unique): Boolean

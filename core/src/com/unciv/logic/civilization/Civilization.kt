@@ -375,7 +375,7 @@ class Civilization : IsPartOfGameInfoSerialization {
         .filter { !it.isDefeated() }
     
     @Readonly
-    fun forEachKnownCiv(withSpectators:Boolean=false, op: (civ: Civilization) -> Unit) {
+    inline fun forEachKnownCiv(withSpectators:Boolean=false, op: (civ: Civilization) -> Unit) {
         diplomacy.values.forEach { 
             if (!it.otherCiv.isDefeated() && (withSpectators || !it.otherCiv.isSpectator()))
                 op(it.otherCiv)
