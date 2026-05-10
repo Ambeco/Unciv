@@ -740,7 +740,7 @@ enum class UniqueType(
     ConditionalTutorialCompleted("if tutorial [comment] is completed", UniqueTarget.Conditional, flags = UniqueFlag.setOfHiddenToUsers), // Hidden as no translations needed for now
 
     /////// civ conditionals
-    ConditionalCivFilter("for [civFilter] Civilizations", UniqueTarget.Conditional),
+    ConditionalCivFilter("for [civFilter] Civilizations", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCiv)),
     ConditionalWar("when at war", UniqueTarget.Conditional),
     ConditionalNotWar("when not at war", UniqueTarget.Conditional),
     ConditionalGoldenAge("during a Golden Age", UniqueTarget.Conditional),
@@ -773,15 +773,15 @@ enum class UniqueType(
     ConditionalAfterEnhancingReligion("after enhancing a religion", UniqueTarget.Conditional),
     ConditionalAfterGeneratingGreatProphet("after generating a Great Prophet", UniqueTarget.Conditional),
 
-    ConditionalBuildingBuilt("if [buildingFilter] is constructed", UniqueTarget.Conditional),
-    ConditionalBuildingNotBuilt("if [buildingFilter] is not constructed", UniqueTarget.Conditional),
-    ConditionalBuildingBuiltAll("if [buildingFilter] is constructed in all [cityFilter] cities", UniqueTarget.Conditional),
-    ConditionalBuildingBuiltAmount("if [buildingFilter] is constructed in at least [positiveAmount] of [cityFilter] cities", UniqueTarget.Conditional),
+    ConditionalBuildingBuilt("if [buildingFilter] is constructed", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCiv)),
+    ConditionalBuildingNotBuilt("if [buildingFilter] is not constructed", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCiv)),
+    ConditionalBuildingBuiltAll("if [buildingFilter] is constructed in all [cityFilter] cities", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCiv)),
+    ConditionalBuildingBuiltAmount("if [buildingFilter] is constructed in at least [positiveAmount] of [cityFilter] cities", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCiv)),
     ConditionalBuildingBuiltByAnybody("if [buildingFilter] is constructed by anybody", UniqueTarget.Conditional),
     ConditionalBuildingNotBuiltByAnybody("if [buildingFilter] is not constructed by anybody", UniqueTarget.Conditional),
 
-    ConditionalWithResource("with [resource]", UniqueTarget.Conditional),
-    ConditionalWithoutResource("without [resource]", UniqueTarget.Conditional),
+    ConditionalWithResource("with [resource]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsFilter)),
+    ConditionalWithoutResource("without [resource]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsFilter)),
 
     // Supports also stockpileable resources (Gold, Faith, Culture, Science)
     ConditionalWhenAboveAmountStatResource("when above [amount] [stat/resource]", UniqueTarget.Conditional, flags = setOf(UniqueFlag.AcceptsSpeedModifier),
@@ -794,22 +794,22 @@ enum class UniqueType(
                 " 'Between' is inclusive - so 'between 1 and 5' includes 1 and 5."),
 
     /////// city conditionals
-    ConditionalInThisCity("in this city", UniqueTarget.Conditional),
-    ConditionalCityFilter("in [cityFilter] cities", UniqueTarget.Conditional),
-    ConditionalCityConnected("in cities connected to the capital", UniqueTarget.Conditional),
-    ConditionalCityReligion("in cities with a [religionFilter] religion", UniqueTarget.Conditional),
-    ConditionalCityNotReligion("in cities not following a [religionFilter] religion", UniqueTarget.Conditional),
-    ConditionalCityMajorReligion("in cities with a major religion", UniqueTarget.Conditional),
-    ConditionalCityEnhancedReligion("in cities with an enhanced religion", UniqueTarget.Conditional),
-    ConditionalCityThisReligion("in cities following our religion", UniqueTarget.Conditional),
-    ConditionalCityWithBuilding("in cities with a [buildingFilter]", UniqueTarget.Conditional),
-    ConditionalCityWithoutBuilding("in cities without a [buildingFilter]", UniqueTarget.Conditional),
-    ConditionalPopulationFilter("in cities with at least [positiveAmount] [populationFilter]", UniqueTarget.Conditional),
-    ConditionalExactPopulationFilter("in cities with [positiveAmount] [populationFilter]", UniqueTarget.Conditional),
-    ConditionalBetweenPopulationFilter("in cities with between [amount] and [amount] [populationFilter]", UniqueTarget.Conditional,
+    ConditionalInThisCity("in this city", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityFilter("in [cityFilter] cities", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityConnected("in cities connected to the capital", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityReligion("in cities with a [religionFilter] religion", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityNotReligion("in cities not following a [religionFilter] religion", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityMajorReligion("in cities with a major religion", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityEnhancedReligion("in cities with an enhanced religion", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityThisReligion("in cities following our religion", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityWithBuilding("in cities with a [buildingFilter]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalCityWithoutBuilding("in cities without a [buildingFilter]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalPopulationFilter("in cities with at least [positiveAmount] [populationFilter]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalExactPopulationFilter("in cities with [positiveAmount] [populationFilter]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalBetweenPopulationFilter("in cities with between [amount] and [amount] [populationFilter]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity),
         docDescription = "'Between' is inclusive - so 'between 1 and 5' includes 1 and 5."),
-    ConditionalBelowPopulationFilter("in cities with less than [amount] [populationFilter]", UniqueTarget.Conditional),
-    ConditionalWhenGarrisoned("with a garrison", UniqueTarget.Conditional),
+    ConditionalBelowPopulationFilter("in cities with less than [amount] [populationFilter]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
+    ConditionalWhenGarrisoned("with a garrison", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsCity)),
 
     /////// unit conditionals
     ConditionalOurUnit("for [mapUnitFilter] units", UniqueTarget.Conditional),
@@ -822,26 +822,26 @@ enum class UniqueType(
     ConditionalVsLargerCiv("when fighting units from a Civilization with more Cities than you", UniqueTarget.Conditional),
     ConditionalAttacking("when attacking", UniqueTarget.Conditional),
     ConditionalDefending("when defending", UniqueTarget.Conditional),
-    ConditionalFightingInTiles("when fighting in [tileFilter] tiles", UniqueTarget.Conditional),
-    ConditionalForeignContinent("on foreign continents", UniqueTarget.Conditional),
-    ConditionalAdjacentUnit("when adjacent to a [mapUnitFilter] unit", UniqueTarget.Conditional),
+    ConditionalFightingInTiles("when fighting in [tileFilter] tiles", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
+    ConditionalForeignContinent("on foreign continents", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
+    ConditionalAdjacentUnit("when adjacent to a [mapUnitFilter] unit", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
     ConditionalAboveHP("when above [positiveAmount] HP", UniqueTarget.Conditional),
     ConditionalBelowHP("when below [positiveAmount] HP", UniqueTarget.Conditional),
     ConditionalBelowMovement("when below [positiveAmount] movement", UniqueTarget.Conditional),
     ConditionalAboveMovement("when above [positiveAmount] movement", UniqueTarget.Conditional),
     ConditionalHasNotUsedOtherActions("if it hasn't used other actions yet", UniqueTarget.Conditional),
-    ConditionalStackedWithUnit("when stacked with a [mapUnitFilter] unit", UniqueTarget.Conditional),
-    ConditionalNotStackedWithUnit("when not stacked with a [mapUnitFilter] unit", UniqueTarget.Conditional),
+    ConditionalStackedWithUnit("when stacked with a [mapUnitFilter] unit", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
+    ConditionalNotStackedWithUnit("when not stacked with a [mapUnitFilter] unit", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
 
     /////// tile conditionals
-    ConditionalNeighborTiles("with [nonNegativeAmount] to [nonNegativeAmount] neighboring [tileFilter] tiles", UniqueTarget.Conditional),
-    ConditionalInTiles("in [tileFilter] tiles", UniqueTarget.Conditional),
-    ConditionalInTilesNot("in tiles without [tileFilter]", UniqueTarget.Conditional),
-    ConditionalNearTiles("within [positiveAmount] tiles of a [tileFilter]", UniqueTarget.Conditional),
+    ConditionalNeighborTiles("with [nonNegativeAmount] to [nonNegativeAmount] neighboring [tileFilter] tiles", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
+    ConditionalInTiles("in [tileFilter] tiles", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
+    ConditionalInTilesNot("in tiles without [tileFilter]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
+    ConditionalNearTiles("within [positiveAmount] tiles of a [tileFilter]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
 
-    ConditionalAdjacentTo("in tiles adjacent to [tileFilter] tiles", UniqueTarget.Conditional),
+    ConditionalAdjacentTo("in tiles adjacent to [tileFilter] tiles", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
 
-    ConditionalNotAdjacentTo("in tiles not adjacent to [tileFilter] tiles", UniqueTarget.Conditional),
+    ConditionalNotAdjacentTo("in tiles not adjacent to [tileFilter] tiles", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsTile)),
 
 
     /////// area conditionals
@@ -850,11 +850,11 @@ enum class UniqueType(
     ConditionalInRegionExceptOfType("in all except [regionType] Regions", UniqueTarget.Conditional),
 
     /////// countables conditionals
-    ConditionalCountableEqualTo("when number of [countable] is equal to [countable]", UniqueTarget.Conditional),
-    ConditionalCountableDifferentThan("when number of [countable] is different than [countable]", UniqueTarget.Conditional),
-    ConditionalCountableMoreThan("when number of [countable] is more than [countable]", UniqueTarget.Conditional),
-    ConditionalCountableLessThan("when number of [countable] is less than [countable]", UniqueTarget.Conditional),
-    ConditionalCountableBetween("when number of [countable] is between [countable] and [countable]", UniqueTarget.Conditional,
+    ConditionalCountableEqualTo("when number of [countable] is equal to [countable]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsFilter)),
+    ConditionalCountableDifferentThan("when number of [countable] is different than [countable]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsFilter)),
+    ConditionalCountableMoreThan("when number of [countable] is more than [countable]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsFilter)),
+    ConditionalCountableLessThan("when number of [countable] is less than [countable]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsFilter)),
+    ConditionalCountableBetween("when number of [countable] is between [countable] and [countable]", UniqueTarget.Conditional, flags=setOf(UniqueFlag.ConditionalTargetsFilter),
         docDescription = "'Between' is inclusive - so 'between 1 and 5' includes 1 and 5."),
 
     /////// carrying conditionals

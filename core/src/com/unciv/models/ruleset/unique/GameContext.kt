@@ -13,6 +13,7 @@ import com.unciv.logic.map.tile.Tile
 import com.unciv.models.stats.Stat
 import com.unciv.utils.hashOf
 import yairm210.purity.annotations.Readonly
+import java.util.EnumSet
 import kotlin.random.Random
 
 data class GameContext(
@@ -35,7 +36,7 @@ data class GameContext(
         (ourCombatant?.getCivInfo()?.gameInfo) ?: (theirCombatant?.getCivInfo()?.gameInfo) ?: (attackedTile?.tileMap?.gameInfo) ?:
         (otherCiv?.gameInfo),
 
-    val ignoreConditionals: Boolean = false,
+    val ignoreConditionals: Set<IgnoreConditionalsFlags> = ConsiderAllConditionalsSet,
 ) {
     constructor(city: City) : this(city.civ, city, tile = city.getCenterTileOrNull(), gameInfo = city.civ.gameInfo)
     constructor(unit: MapUnit) : this(unit.civ, unit = unit, tile = if (unit.hasTile()) unit.getTile() else null, gameInfo = unit.civ.gameInfo)
@@ -109,11 +110,26 @@ data class GameContext(
     }
 
     companion object {
-        val IgnoreConditionals = GameContext(ignoreConditionals = true)
+        enum class IgnoreConditionalsFlags {
+            IGNORE_CIVILIZATION,
+            IGNORE_CITY,
+            IGNORE_UNIT,
+            IGNORE_TILE,
+            IGNORE_OUR_COMBATANT,
+            IGNORE_THEIR_COMBATANT,
+            IGNORE_ATTACKED_TILE,
+            IGNORE_ACTION,
+            IGNORE_REGION,
+            IGNORE_GAME_INFO,
+        }
+        val IgnoreAllConditionalsSet: Set<IgnoreConditionalsFlags> = EnumSet.allOf(IgnoreConditionalsFlags::class.java)
+        val ConsiderAllConditionalsSet: Set<IgnoreConditionalsFlags> = EnumSet.noneOf(IgnoreConditionalsFlags::class.java)
+        
+        val IgnoreConditionals = GameContext(ignoreConditionals = IgnoreAllConditionalsSet)
         val EmptyState = GameContext()
         /** When caching uniques, we need to cache them unmultiplied, and apply multiplication only on retrieval from cache
          * This state lets the multiplication function know that it's always 1:1 */
-        val IgnoreMultiplicationForCaching = GameContext(ignoreConditionals = true)
+        val IgnoreMultiplicationForCaching = GameContext(ignoreConditionals = IgnoreAllConditionalsSet)
     }
 
     /**  Used ONLY for stateBasedRandom in [Conditionals.conditionalApplies] to prevent save scumming on [UniqueType.ConditionalChance] */

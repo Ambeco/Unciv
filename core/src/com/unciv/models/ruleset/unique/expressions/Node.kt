@@ -6,6 +6,7 @@ import com.unciv.models.ruleset.unique.GameContext
 import yairm210.purity.annotations.Readonly
 
 internal sealed interface Node {
+    @Readonly fun shouldIgnore(context: GameContext): Boolean
     @Readonly fun eval(context: GameContext): Double
     @Readonly fun getErrors(ruleset: Ruleset): List<String>
 
@@ -14,6 +15,7 @@ internal sealed interface Node {
 
     interface Constant : Node, Tokenizer.Token {
         val value: Double
+        override fun shouldIgnore(context: GameContext): Boolean = false
         override fun eval(context: GameContext): Double = value
         override fun getErrors(ruleset: Ruleset) = emptyList<String>()
     }
@@ -23,12 +25,14 @@ internal sealed interface Node {
     }
 
     class UnaryOperation(private val operator: Operator.Unary, private val operand: Node): Node {
+        override fun shouldIgnore(context: GameContext): Boolean = operand.shouldIgnore(context)
         override fun eval(context: GameContext): Double = operator.implementation(operand.eval(context))
         override fun toString() = "($operator $operand)"
         override fun getErrors(ruleset: Ruleset) = operand.getErrors(ruleset)
     }
 
     class BinaryOperation(private val operator: Operator.Binary, private val left: Node, private val right: Node): Node {
+        override fun shouldIgnore(context: GameContext): Boolean = left.shouldIgnore(context) || right.shouldIgnore(context)
         override fun eval(context: GameContext): Double = operator.implementation(left.eval(context), right.eval(context))
         override fun toString() = "($left $operator $right)"
         override fun getErrors(ruleset: Ruleset): List<String> {
@@ -40,6 +44,13 @@ internal sealed interface Node {
 
     class Countable(private val parameterText: String, 
                     /** Most countables can be detected via string pattern */ private val rulesetInvariantCountable: Countables?): Node, Tokenizer.Token {
+
+        override fun shouldIgnore(context: GameContext): Boolean {
+            val ruleset = context.gameInfo?.ruleset ?: return false
+            val countable = getCountable(ruleset) ?: return false
+            return countable.shouldIgnore(parameterText, context)
+        }
+                        
         override fun eval(context: GameContext): Double {
             val ruleset = context.gameInfo?.ruleset
                 ?: return 0.0 // We use "surprised pikachu face" for any unexpected issue so games don't crash 
@@ -66,6 +77,7 @@ internal sealed interface Node {
     }
 
     class FunctionCall(private val function: Operator.Function, private val arguments: List<Node>): Node {
+        override fun shouldIgnore(context: GameContext): Boolean = arguments.any {it.shouldIgnore(context)}
         override fun eval(context: GameContext): Double {
             val evaluatedArgs = arguments.map { it.eval(context) }
             return function.implementation(evaluatedArgs)

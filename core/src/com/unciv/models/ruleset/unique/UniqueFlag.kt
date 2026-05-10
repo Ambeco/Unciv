@@ -6,7 +6,11 @@ enum class UniqueFlag {
     HiddenToUsers,
     NoConditionals,
     AcceptsSpeedModifier,
-    AcceptsGameProgressModifier
+    AcceptsGameProgressModifier,
+    ConditionalTargetsCiv,
+    ConditionalTargetsCity,
+    ConditionalTargetsTile,
+    ConditionalTargetsFilter,
     ;
     companion object {
         val setOfHiddenToUsers: EnumSet<UniqueFlag> = EnumSet.of(HiddenToUsers)

@@ -1,8 +1,10 @@
 package com.unciv.models.ruleset.unique
 
 import com.unciv.models.ruleset.Ruleset
-import com.unciv.models.ruleset.unique.Countables.Stats
-import com.unciv.models.ruleset.unique.Countables.TileResources
+import com.unciv.models.ruleset.unique.GameContext.Companion.IgnoreConditionalsFlags.IGNORE_CITY
+import com.unciv.models.ruleset.unique.GameContext.Companion.IgnoreConditionalsFlags.IGNORE_CIVILIZATION
+import com.unciv.models.ruleset.unique.GameContext.Companion.IgnoreConditionalsFlags.IGNORE_GAME_INFO
+import com.unciv.models.ruleset.unique.GameContext.Companion.IgnoreConditionalsFlags.IGNORE_UNIT
 import com.unciv.models.ruleset.unique.expressions.Expressions
 import com.unciv.models.ruleset.unique.expressions.Operator
 import com.unciv.models.stats.Stat
@@ -40,6 +42,7 @@ enum class Countables(
     Integer {
         override val documentationHeader = "Integer constant - any positive or negative integer number"
         override fun matches(parameterText: String) = parameterText.toIntOrNull() != null
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext) = false
         override fun eval(parameterText: String, gameContext: GameContext) = parameterText.toIntOrNull()
         override fun getKnownValuesForAutocomplete(ruleset: Ruleset): Set<String>  = setOf()
         override val example: String = "123"
@@ -47,19 +50,23 @@ enum class Countables(
 
     Turns("turns", shortDocumentation = "Number of turns played") {
         override val documentationStrings = listOf("Always starts at zero irrespective of game speed or start era")
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext) = gameContext.ignoreConditionals.contains(IGNORE_GAME_INFO)
         override fun eval(parameterText: String, gameContext: GameContext) =
             gameContext.gameInfo?.turns
     },
     Year("year", shortDocumentation = "The current year") {
         override val documentationStrings = listOf("Depends on game speed or start era, negative for years BC")
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext) = gameContext.ignoreConditionals.contains(IGNORE_GAME_INFO)
         override fun eval(parameterText: String, gameContext: GameContext) =
             gameContext.gameInfo?.getYear(0)
     },
     Cities("Cities", shortDocumentation = "The number of cities the relevant Civilization owns") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext) = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext) =
             gameContext.civInfo?.cities?.size
     },
     Units("Units", shortDocumentation = "The number of units the relevant Civilization owns") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext) = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext) =
             gameContext.civInfo?.units?.getCivUnitsSize()
     },
@@ -68,6 +75,8 @@ enum class Countables(
         override val documentationHeader = "Stat name (${niceJoinList(Stat.names())})"
         override val documentationStrings = listOf("Gets the stat *reserve*, not the amount per turn (can be city stats or civilization stats, depending on where the unique is used)")
         override fun matches(parameterText: String) = Stat.isStat(parameterText)
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean 
+            = gameContext.ignoreConditionals.contains(if (gameContext.city != null) IGNORE_CITY else IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val relevantStat = Stat.safeValueOf(parameterText) ?: return null
             val city = gameContext.city
@@ -88,6 +97,8 @@ enum class Countables(
             val param = parameterText.getPlaceholderParameters().firstOrNull() ?: return false
             return Stat.isStat(param) || TileResources.matches(param, ruleset)
         }
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean
+            = gameContext.ignoreConditionals.contains(if (gameContext.city != null) IGNORE_CITY else IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val param = parameterText.getPlaceholderParameters().firstOrNull() ?: return null
             val civ = gameContext.civInfo ?: return null
@@ -121,11 +132,13 @@ enum class Countables(
     },
 
     PolicyBranches("Completed Policy branches") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext) =
             gameContext.civInfo?.getCompletedPolicyBranchesCount()
     },
 
     FilteredCities("[cityFilter] Cities") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val filter = parameterText.getPlaceholderParameters()[0]
             val cities = gameContext.civInfo?.cities ?: return null
@@ -136,6 +149,7 @@ enum class Countables(
     },
 
     FilteredUnits("[mapUnitFilter] Units") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val filter = parameterText.getPlaceholderParameters()[0]
             val unitManager = gameContext.civInfo?.units ?: return null
@@ -150,6 +164,7 @@ enum class Countables(
     Carried("Carried [mapUnitFilter] units", shortDocumentation = "The number of units being carried by this unit") {
         override val documentationStrings = listOf("Only counts transported units matching the filter. For use with 'when number of' conditionals.")
         override val example: String = "Carried [Air] units"
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_UNIT)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             if (gameContext.relevantUnit == null) return null
             val filter = parameterText.getPlaceholderParameters()[0]
@@ -165,6 +180,7 @@ enum class Countables(
     },
     
     FilteredBuildings("[buildingFilter] Buildings") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val filter = parameterText.getPlaceholderParameters()[0]
             val cities = gameContext.civInfo?.cities ?: return null
@@ -178,6 +194,7 @@ enum class Countables(
     },
 
     FilteredBuildingsByCivs("[buildingFilter] Buildings by [civFilter] Civilizations") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val (buildingFilter, civFilter) = parameterText.getPlaceholderParameters()
             val civilizations = gameContext.gameInfo?.civilizations ?: return null
@@ -198,6 +215,7 @@ enum class Countables(
     },
 
     FilteredCitiesByCivs("[cityFilter] Cities of [civFilter] Civilizations") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val (cityFilter, civFilter) = parameterText.getPlaceholderParameters()
             val civilizations = gameContext.gameInfo?.civilizations ?: return null
@@ -216,6 +234,7 @@ enum class Countables(
     },
 
     FilteredPolicies("Adopted [policyFilter] Policies") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val filter = parameterText.getPlaceholderParameters()[0]
             val policyManager = gameContext.civInfo?.policies ?: return null
@@ -229,6 +248,7 @@ enum class Countables(
     },
 
     FilteredPoliciesByCivs("Adopted [policyFilter] Policies by [civFilter] Civilizations") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val (policyFilter, civFilter) = parameterText.getPlaceholderParameters()
             val civilizations = gameContext.gameInfo?.civilizations ?: return null
@@ -250,6 +270,7 @@ enum class Countables(
             "Counts researched matching technologies for the relevant Civilization",
             "Repeatable technologies, like Future Tech, are only counted once"
         )
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val technologies = gameContext.gameInfo?.ruleset?.technologies ?: return null
             val techManager = gameContext.civInfo?.tech ?: return null
@@ -266,6 +287,7 @@ enum class Countables(
     },
 
     RemainingCivs("Remaining [civFilter] Civilizations") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_GAME_INFO)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val filter = parameterText.getPlaceholderParameters()[0]
             val civilizations = gameContext.gameInfo?.civilizations ?: return null
@@ -305,6 +327,7 @@ enum class Countables(
     },
 
     OwnedTiles("Owned [tileFilter] Tiles") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val filter = parameterText.getPlaceholderParameters()[0]
             val cities = gameContext.civInfo?.cities ?: return null
@@ -315,6 +338,7 @@ enum class Countables(
         override fun getKnownValuesForAutocomplete(ruleset: Ruleset) = setOf<String>()
     },
     TileFilterTiles("[tileFilter] Tiles") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CIVILIZATION)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val filter = parameterText.getPlaceholderParameters()[0]
             val tileMap = gameContext.gameInfo?.tileMap ?: return null
@@ -334,6 +358,7 @@ enum class Countables(
         )
         override val matchesWithRuleset = true
         override fun matches(parameterText: String, ruleset: Ruleset) = parameterText in ruleset.tileResources
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_CITY)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val resource = gameContext.gameInfo?.ruleset?.tileResources[parameterText] ?: return null
             val city = gameContext.city
@@ -345,6 +370,7 @@ enum class Countables(
     },
 
     TileResourcesByCivs("[resourceFilter] resource of [civFilter] Civilizations") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_GAME_INFO)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val (resouceFilter, civFilter) = parameterText.getPlaceholderParameters()
             val civilizations = gameContext.gameInfo?.civilizations ?: return null
@@ -371,6 +397,7 @@ enum class Countables(
     /** Please leave this one in, it is tested against in [com.unciv.uniques.CountableTests.testRulesetValidation] */
     @Deprecated("because it was never actually supported", ReplaceWith("Remaining [City-State] Civilizations"), DeprecationLevel.ERROR)
     CityStates("City-States", shortDocumentation = "counts all undefeated city-states") {
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_GAME_INFO)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val civilizations = gameContext.gameInfo?.civilizations ?: return null
             return civilizations.count { it.isAlive() && it.isCityState }
@@ -380,6 +407,7 @@ enum class Countables(
 
     EraNumber("Era number", shortDocumentation = "Number of the era the current player is in") {
         override val documentationStrings = listOf("Zero-based index of the Era in Eras.json.")
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_GAME_INFO)
         override fun eval(parameterText: String, gameContext: GameContext) =
             gameContext.civInfo?.getEraNumber()
     },
@@ -391,6 +419,7 @@ enum class Countables(
             "Food and Happiness return the generic `modifier` field.",
             "Other fields like `goldGiftModifier` or `barbarianModifier` are not accessible with this Countable."
         )
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = gameContext.ignoreConditionals.contains(IGNORE_GAME_INFO)
         override fun eval(parameterText: String, gameContext: GameContext): Int? {
             val stat = Stat.safeValueOf(parameterText.getPlaceholderParameters()[0]) ?: return null
             val speed = gameContext.gameInfo?.speed ?: return null
@@ -417,6 +446,7 @@ enum class Countables(
 
         override fun matches(parameterText: String, ruleset: Ruleset) =
             engine.matches(parameterText, ruleset)
+        override fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean = engine.shouldIgnore(parameterText, gameContext)
         override fun eval(parameterText: String, gameContext: GameContext): Int? =
             engine.eval(parameterText, gameContext)
         override fun getErrorSeverity(parameterText: String, ruleset: Ruleset): UniqueType.UniqueParameterErrorSeverity? =
@@ -464,6 +494,7 @@ enum class Countables(
      * E.g. "[fakeBuilding] Buildings" is obviously a countable of type "[buildingFilter] Buildings", therefore matches will return true.
      * But it has another problem, which is that the building filter is bad, so its getErrorSeverity will return "ruleset specific" */
     @Readonly open fun matches(parameterText: String, ruleset: Ruleset): Boolean = false
+    @Readonly abstract fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean
     @Readonly abstract fun eval(parameterText: String, gameContext: GameContext): Int?
 
     open val documentationHeader get() =
@@ -494,6 +525,14 @@ enum class Countables(
         getErrorSeverity(parameterText.getPlaceholderParameters().first(), ruleset)
 
     companion object {
+
+        @Readonly
+        fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean {
+            val ruleset = gameContext.gameInfo?.ruleset
+            val countable = getMatching(parameterText, ruleset) ?: return false
+            return countable.shouldIgnore(parameterText, gameContext)
+        }
+        
         @Readonly
         fun getMatching(parameterText: String, ruleset: Ruleset?) = Countables.entries
             .firstOrNull {

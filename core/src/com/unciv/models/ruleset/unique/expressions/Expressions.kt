@@ -29,6 +29,12 @@ class Expressions {
     }
 
     @Readonly
+    fun shouldIgnore(parameterText: String, gameContext: GameContext): Boolean {
+        val node = parse(parameterText).node ?: return false
+        return node.shouldIgnore(gameContext)
+    }
+    
+    @Readonly
     fun eval(parameterText: String, gameContext: GameContext): Int? {
         val node = parse(parameterText).node ?: return null
         return node.eval(gameContext).roundToInt()

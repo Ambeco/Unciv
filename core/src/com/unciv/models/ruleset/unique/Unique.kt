@@ -84,7 +84,7 @@ class Unique(val text: String, val sourceObjectType: UniqueTarget? = null, val s
 
     @Readonly
     fun conditionalsApply(state: GameContext): Boolean = timeThis("Unique.conditionalsApply") {
-        if (state.ignoreConditionals) return true
+        if (state.ignoreConditionals == GameContext.IgnoreAllConditionalsSet) return true
         // Always allow Timed conditional uniques. They are managed elsewhere
         if (isTimedTriggerable) return true
         if (modifiers.isEmpty()) return true
