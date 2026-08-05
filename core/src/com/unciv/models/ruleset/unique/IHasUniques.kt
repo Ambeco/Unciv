@@ -58,6 +58,13 @@ interface IHasUniques : INamed {
         = uniqueMap.forEachMatchingUnique(uniqueType, gameContext, op)
 
     @Readonly
+    fun firstMatchingUniqueOrNull(uniqueType: UniqueType, gameContext: GameContext, filter:(Unique)->Boolean, predicate: (unique: Unique)->Boolean): Unique?
+        = uniqueMap.firstMatchingUniqueOrNull(uniqueType, gameContext, filter, predicate)
+    @Readonly
+    fun firstMatchingUniqueOrNull(uniqueType: UniqueType, gameContext: GameContext, predicate: (unique: Unique)->Boolean): Unique?
+        = uniqueMap.firstMatchingUniqueOrNull(uniqueType, gameContext, predicate)
+
+    @Readonly
     fun getMatchingTagUniques(uniqueTag: String, state: GameContext = GameContext.EmptyState) =
         uniqueMap.getMatchingTagUniques(uniqueTag, state)
 

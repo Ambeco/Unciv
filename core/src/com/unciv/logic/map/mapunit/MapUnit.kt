@@ -334,19 +334,34 @@ class MapUnit : IsPartOfGameInfoSerialization {
         gameContext: GameContext = cache.state,
         checkCivInfoUniques: Boolean,
         op: (Unique)->Unit,
-    ) {
-        tempUniquesMap.forEachMatchingUnique(uniqueType, gameContext, op)
+    )
+        = firstMatchingUniqueOrNull(uniqueType, gameContext, checkCivInfoUniques) { op(it); false }
+
+    @Readonly
+    fun firstMatchingUniqueOrNull(uniqueType: UniqueType, gameContext: GameContext = cache.state, predicate: (Unique)->Boolean): Unique?
+        = firstMatchingUniqueOrNull(uniqueType, gameContext, checkCivInfoUniques = false, predicate)
+    @Readonly
+    fun firstMatchingUniqueOrNull(
+        uniqueType: UniqueType,
+        gameContext: GameContext = cache.state,
+        checkCivInfoUniques: Boolean,
+        predicate: (Unique)->Boolean,
+    ): Unique? {
+        val r = tempUniquesMap.firstMatchingUniqueOrNull(uniqueType, gameContext, predicate)?.let { return it }
+        if (r != null) return r
         if (checkCivInfoUniques)
-            civ.forEachMatchingUnique(uniqueType, gameContext, op)
+            return civ.firstMatchingUniqueOrNull(uniqueType, gameContext, predicate)
+        return null
     }
 
     @Readonly
     fun hasUnique(
         uniqueType: UniqueType,
         gameContext: GameContext = cache.state,
-        checkCivInfoUniques: Boolean = false
+        checkCivInfoUniques: Boolean = false,
+        predicate: (Unique)->Boolean = {true}
     ): Boolean {
-        return getMatchingUniques(uniqueType, gameContext, checkCivInfoUniques).any()
+        return firstMatchingUniqueOrNull(uniqueType, gameContext, checkCivInfoUniques, predicate) != null
     }
 
     @Readonly
