@@ -8,6 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.Group
 import com.badlogic.gdx.scenes.scene2d.Touchable
 import com.unciv.logic.map.HexMath
 import com.unciv.logic.map.TileMap
+import com.unciv.logic.map.tile.Tile
 import com.unciv.ui.components.tilegroups.layers.*
 import com.unciv.ui.components.widgets.ZoomableScrollPane
 import kotlin.math.max
@@ -19,12 +20,21 @@ import kotlin.math.min
  * @param T [TileGroup] or a subclass ([WorldTileGroup], [CityTileGroup])
  * @param tileGroups Source of [TileGroup]s to include, will be **iterated several times**.
  * @param tileGroupsToUnwrap For these, coordinates will be unwrapped using [TileMap.getUnwrappedPosition]
+ * @param allTiles Tiles this map should size/scroll itself for, independent of which [tileGroups]
+ *   actually have a live [T] right now. Defaults to deriving bounds from [tileGroups] itself, which
+ *   is correct as long as every tile always has a live group (true of every caller today). A
+ *   pooled/recycling caller that only constructs a subset of [T] at a time - reusing a fixed pool as
+ *   the viewport scrolls, rather than one [T] per map tile forever - should pass the full tile set
+ *   here, so scroll bounds and world-wrap teleport thresholds reflect the true map size rather than
+ *   shrinking to whatever's currently pooled. Not otherwise used for layout: only the tiles that
+ *   actually have a [T] in [tileGroups] get positioned and registered in a layer.
  */
 class TileGroupMap<T: TileGroup>(
     val mapHolder: ZoomableScrollPane,
     tileGroups: Iterable<T>,
     val worldWrap: Boolean = false,
-    tileGroupsToUnwrap: Set<T>? = null
+    tileGroupsToUnwrap: Set<T>? = null,
+    allTiles: Iterable<Tile>? = null
 ): Group() {
 
     companion object {
@@ -71,6 +81,29 @@ class TileGroupMap<T: TileGroup>(
      *  so world-wrap can reposition the click-target by index. */
     private val sortedTileGroups: List<T>
 
+    /** Every [T] currently registered, keyed by tile - see [getTileGroupOrNull]. Covers only
+     *  [tileGroups], never [allTiles] (a pooled caller's [allTiles] tiles mostly *don't* have a
+     *  live [T] - that's the whole point of a pool). */
+    private val tileToGroup = HashMap<Tile, T>()
+
+    /** Expands [topX]/[topY]/[bottomX]/[bottomY] to include world-coordinate point ([x], [y]) -
+     *  used both for the [tileGroups] this map actually lays out, and (if given) for [allTiles],
+     *  so a pooled caller's bounds reflect the whole map, not just its currently-live subset. */
+    private fun expandBoundsFor(x: Float, y: Float) {
+        topX =
+                if (worldWrap)
+                // Well it's not pretty but it works
+                // The resulting topX was always missing 1.2 * groupSize in every possible
+                // combination of map size and shape
+                    max(topX, x + groupSize * 1.2f)
+                else
+                    max(topX, x + groupSize + 4f)
+
+        topY = max(topY, y + groupSize)
+        bottomX = min(bottomX, x)
+        bottomY = min(bottomY, y)
+    }
+
     init {
 
         for (tileGroup in tileGroups) {
@@ -87,18 +120,20 @@ class TileGroupMap<T: TileGroup>(
                 positionalVector.y * 0.8f * groupSize
             )
 
-            topX =
-                    if (worldWrap)
-                    // Well it's not pretty but it works
-                    // The resulting topX was always missing 1.2 * groupSize in every possible
-                    // combination of map size and shape
-                        max(topX, tileGroup.x + groupSize * 1.2f)
-                    else
-                        max(topX, tileGroup.x + groupSize + 4f)
+            expandBoundsFor(tileGroup.x, tileGroup.y)
+            tileToGroup[tileGroup.tile] = tileGroup
+        }
 
-            topY = max(topY, tileGroup.y + groupSize)
-            bottomX = min(bottomX, tileGroup.x)
-            bottomY = min(bottomY, tileGroup.y)
+        // A pooled/recycling caller passes every map tile here (see the class doc on [allTiles]) so
+        // bounds cover the whole map even though most tiles have no live T right now. Folded in
+        // *after* the loop above, using the same formula minus per-group unwrap (allTiles is the
+        // reference/anchor set, so it doesn't need it) - for every caller today (allTiles == null)
+        // this is simply skipped, leaving bounds exactly as they were.
+        if (allTiles != null) {
+            for (tile in allTiles) {
+                val positionalVector = HexMath.hex2WorldCoords(tile.position)
+                expandBoundsFor(positionalVector.x * 0.8f * groupSize, positionalVector.y * 0.8f * groupSize)
+            }
         }
 
         for (group in tileGroups) {
@@ -197,6 +232,12 @@ class TileGroupMap<T: TileGroup>(
 
         maxVisibleMapWidth = mapWidth - groupSize * 1.5f
     }
+
+    /** The [T] currently registered for [tile], or `null` if [tile] isn't in [tileGroups] - always
+     *  `null` for a tile that only appears via [allTiles]. A pooled/recycling caller wanting a live
+     *  [T] for an arbitrary tile *not* currently in its pool needs to evict/rebind one itself
+     *  (see [TileGroup.rebind]); that's pool policy, not this class's job. */
+    fun getTileGroupOrNull(tile: Tile): T? = tileToGroup[tile]
 
     /**
      * Returns the positional coordinates of the TileGroupMap center.
