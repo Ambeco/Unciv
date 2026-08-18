@@ -43,9 +43,7 @@ class GoldenAgeManager : IsPartOfGameInfoSerialization {
 
     @Readonly
     fun calculateGoldenAgeLength(unmodifiedNumberOfTurns: Int): Int {
-        var turnsToGoldenAge = unmodifiedNumberOfTurns.toFloat()
-        for (unique in civInfo.getMatchingUniques(UniqueType.GoldenAgeLength))
-            turnsToGoldenAge *= unique.params[0].toPercent()
+        var turnsToGoldenAge = civInfo.accumulateForEachMatchingUnique(UniqueType.GoldenAgeLength, civInfo.state, unmodifiedNumberOfTurns.toFloat()) { acc, unique -> acc * unique.params[0].toPercent() }
         turnsToGoldenAge *= civInfo.gameInfo.speed.goldenAgeLengthModifier
         return turnsToGoldenAge.toInt()
     }

@@ -176,8 +176,8 @@ class CityStateFunctions(val civInfo: Civilization) {
         militaryUnit.addConstructionBonuses(placedUnit, civInfo.getCapital()!!.cityConstructions)
 
         // Siam gets +10 XP for all CS units
-        receivingCiv.forEachMatchingUnique(UniqueType.CityStateGiftedUnitsStartWithXp) { unique ->
-            placedUnit.promotions.XP += unique.params[0].toInt()
+        placedUnit.promotions.XP = receivingCiv.accumulateForEachMatchingUnique(UniqueType.CityStateGiftedUnitsStartWithXp, receivingCiv.state, placedUnit.promotions.XP) { acc, unique ->
+            acc + unique.params[0].toInt()
         }
 
         // Point to the gifted unit, then to the other places mentioned in the message
@@ -201,8 +201,8 @@ class CityStateFunctions(val civInfo: Civilization) {
         val gameProgressApproximate = min(civInfo.gameInfo.turns / (400f * speed.modifier), 1f)
         influenceGained *= 1 - (2/3f) * gameProgressApproximate
         influenceGained *= speed.goldGiftModifier
-        donorCiv.forEachMatchingUnique(UniqueType.CityStateGoldGiftsProvideMoreInfluence) { unique ->
-            influenceGained *= 1f + unique.params[0].toFloat() / 100f
+        influenceGained = donorCiv.accumulateForEachMatchingUnique(UniqueType.CityStateGoldGiftsProvideMoreInfluence, donorCiv.state, influenceGained) { acc, unique ->
+            acc * (1f + unique.params[0].toFloat() / 100f)
         }
 
         // Bonus due to "Invest" quests

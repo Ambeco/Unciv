@@ -109,7 +109,7 @@ class Civilization : IsPartOfGameInfoSerialization {
 
     /** Same as above variable */
     @Transient
-    var enemyMovementPenaltyUniques: Sequence<Unique>? = null
+    var enemyMovementPenaltyUniques: List<Unique>? = null
 
     @Transient
     var detailedCivResources = ResourceSupplyList()
@@ -587,13 +587,9 @@ class Civilization : IsPartOfGameInfoSerialization {
      */
     @Readonly
     fun getResourceModifier(resource: TileResource): Float {
-        var finalModifier = 1f
-
-        for (unique in getMatchingUniques(UniqueType.PercentResourceProduction))
-            if (resource.matchesFilter(unique.params[1]))
-                finalModifier += unique.params[0].toFloat() / 100f
-
-        return finalModifier
+        return accumulateForEachMatchingUnique(UniqueType.PercentResourceProduction, state, 1f) { acc, unique ->
+            if (resource.matchesFilter(unique.params[1])) acc + unique.params[0].toFloat() / 100f else acc
+        }
     }
 
     @Readonly fun hasResource(resourceName: String): Boolean = getResourceAmount(resourceName) > 0
@@ -611,21 +607,16 @@ class Civilization : IsPartOfGameInfoSerialization {
     fun getMatchingUniques(
         uniqueType: UniqueType,
         gameContext: GameContext = state
-    ): Sequence<Unique> = sequence {
-        yieldAll(nation.getMatchingUniques(uniqueType, gameContext))
-        yieldAll(cities.asSequence()
-            .flatMap { city -> city.getMatchingUniquesWithNonLocalEffects(uniqueType, gameContext) }
-        )
-        yieldAll(policies.policyUniques.getMatchingUniques(uniqueType, gameContext))
-        yieldAll(tech.techUniques.getMatchingUniques(uniqueType, gameContext))
-        yieldAll(temporaryUniques.getMatchingTagUniques(uniqueType, gameContext))
-        yieldAll(getEra().getMatchingUniques(uniqueType, gameContext))
-        yieldAll(cityStateFunctions.getUniquesProvidedByCityStates(uniqueType, gameContext))
-        if (religionManager.religion != null)
-            yieldAll(religionManager.religion!!.founderBeliefUniqueMap.getMatchingUniques(uniqueType, gameContext))
+    ): Sequence<Unique> = getMatchingUniquesSnapshot(uniqueType, gameContext).asSequence()
 
-        yieldAll(civResourcesUniqueMap.getMatchingUniques(uniqueType, gameContext))
-        yieldAll(gameInfo.getGlobalUniques().getMatchingUniques(uniqueType, gameContext))
+    /** @return a stable snapshot List of uniques matching [uniqueType], safe to keep iterating even if the
+     *  underlying uniques change mid-iteration - unlike [forEachMatchingUnique]. Also useful when the whole
+     *  collection needs to be available at once, e.g. for groupBy/mapValues. */
+    @Readonly
+    fun getMatchingUniquesSnapshot(uniqueType: UniqueType, gameContext: GameContext = state): List<Unique> {
+        val uniques = ArrayList<Unique>()
+        forEachMatchingUnique(uniqueType, gameContext) { uniques.add(it) }
+        return uniques
     }
 
     @Readonly
@@ -954,7 +945,7 @@ class Civilization : IsPartOfGameInfoSerialization {
 
     @Readonly
     fun isLongCountActive(): Boolean {
-        val unique = getMatchingUniques(UniqueType.MayanGainGreatPerson).firstOrNull()
+        val unique = firstMatchingUniqueOrNull(UniqueType.MayanGainGreatPerson) { true }
             ?: return false
         return tech.isResearched(unique.params[1])
     }

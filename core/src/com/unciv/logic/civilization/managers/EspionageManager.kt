@@ -67,7 +67,7 @@ class EspionageManager : IsPartOfGameInfoSerialization {
         return spyList.asSequence()
             .filter { it.isSetUp() }
             .mapNotNull { it.getCityOrNull() }
-            .flatMap { it.getCenterTile().getTilesInDistance(1) }
+            .flatMap { it.getCenterTile().getTilesInDistanceSnapshot(1) }
     }
 
     @Readonly
@@ -83,7 +83,9 @@ class EspionageManager : IsPartOfGameInfoSerialization {
 
     @Readonly fun getSpiesInCity(city: City): List<Spy> = spyList.filter { it.getCityOrNull() == city }
 
-    @Readonly fun getStartingSpyRank(): Int = 1 + civInfo.getMatchingUniques(UniqueType.SpyStartingLevel).sumOf { it.params[0].toInt() }
+    @Readonly fun getStartingSpyRank(): Int {
+        return civInfo.accumulateForEachMatchingUnique(UniqueType.SpyStartingLevel, civInfo.state, 1) { acc, unique -> acc + unique.params[0].toInt() }
+    }
 
     /**
      * Returns a list of all cities with our spies in them.

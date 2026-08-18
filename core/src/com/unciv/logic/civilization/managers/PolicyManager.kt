@@ -170,10 +170,10 @@ class PolicyManager : IsPartOfGameInfoSerialization {
     fun getPolicyCultureCost(numberOfAdoptedPolicies: Int): Int {
         var policyCultureCost = 25 + (numberOfAdoptedPolicies * 3).toDouble().pow(2.01)
         val worldSizeModifier = civInfo.gameInfo.tileMap.mapParameters.mapSize.getPredefinedOrNextSmaller().policyCostPerCityModifier
-        var cityModifier = worldSizeModifier * (civInfo.cities.count { !it.isPuppet } - 1)
+        val baseCityModifier = worldSizeModifier * (civInfo.cities.count { !it.isPuppet } - 1)
 
-        for (unique in civInfo.getMatchingUniques(UniqueType.LessPolicyCostFromCities)) cityModifier *= 1 - unique.params[0].toFloat() / 100
-        for (unique in civInfo.getMatchingUniques(UniqueType.LessPolicyCost)) policyCultureCost *= unique.params[0].toPercent()
+        val cityModifier = civInfo.accumulateForEachMatchingUnique(UniqueType.LessPolicyCostFromCities, civInfo.state, baseCityModifier) { acc, unique -> acc * (1 - unique.params[0].toFloat() / 100) }
+        policyCultureCost = civInfo.accumulateForEachMatchingUnique(UniqueType.LessPolicyCost, civInfo.state, policyCultureCost) { acc, unique -> acc * unique.params[0].toPercent() }
         if (civInfo.isHuman()) policyCultureCost *= civInfo.getDifficulty().policyCostModifier
         policyCultureCost *= civInfo.gameInfo.speed.cultureCostModifier
         val cost: Int = (policyCultureCost * (1 + cityModifier)).roundToInt()

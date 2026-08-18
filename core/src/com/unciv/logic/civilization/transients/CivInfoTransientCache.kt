@@ -154,10 +154,9 @@ class CivInfoTransientCache(val civInfo: Civilization) {
     private fun updateViewableInvisibleTiles() {
         val newViewableInvisibleTiles = HashSet<Tile>()
         for (unit in civInfo.units.getCivUnits()) {
-            val invisibleUnitUniques = unit.getMatchingUniques(UniqueType.CanSeeInvisibleUnits)
-            if (invisibleUnitUniques.none()) continue
-            val visibleUnitTypes = invisibleUnitUniques.map { it.params[0] }
-                .toList() // save this, it'll be seeing a lot of use
+            // save this, it'll be seeing a lot of use
+            val visibleUnitTypes = unit.getMatchingUniquesSnapshot(UniqueType.CanSeeInvisibleUnits).map { it.params[0] }
+            if (visibleUnitTypes.isEmpty()) continue
             for (tile in unit.viewableTiles) {
                 if (tile.militaryUnit == null) continue
                 if (tile in newViewableInvisibleTiles) continue
@@ -254,8 +253,7 @@ class CivInfoTransientCache(val civInfo: Civilization) {
                 }
             }
 
-            for (unique in civInfo.getMatchingUniques(UniqueType.StatBonusWhenDiscoveringNaturalWonder)) {
-
+            civInfo.forEachMatchingUnique(UniqueType.StatBonusWhenDiscoveringNaturalWonder) { unique ->
                 val normalBonus = Stats.parse(unique.params[0])
                 val firstDiscoveredBonus = Stats.parse(unique.params[1])
 
@@ -278,10 +276,11 @@ class CivInfoTransientCache(val civInfo: Civilization) {
                     )
             }
 
-            for (unique in civInfo.getTriggeredUniques(UniqueType.TriggerUponDiscoveringNaturalWonder,
-                GameContext(civInfo, tile = tile)
-            ))
+            civInfo.forEachTriggeredUnique(UniqueType.TriggerUponDiscoveringNaturalWonder,
+                GameContext(civInfo, tile = tile), { true }
+            ) { unique ->
                 UniqueTriggerActivation.triggerUnique(unique, civInfo, tile=tile, triggerNotificationText = "due to discovering a Natural Wonder")
+            }
 
             // G&K in particular; update the happiness counter in the top bar in the world screen
             civInfo.updateStatsForNextTurn()
@@ -291,7 +290,7 @@ class CivInfoTransientCache(val civInfo: Civilization) {
     fun updateHasActiveEnemyMovementPenalty() {
         civInfo.hasActiveEnemyMovementPenalty = civInfo.hasUnique(UniqueType.EnemyUnitsSpendExtraMovement)
         civInfo.enemyMovementPenaltyUniques =
-                civInfo.getMatchingUniques(UniqueType.EnemyUnitsSpendExtraMovement)
+                civInfo.getMatchingUniquesSnapshot(UniqueType.EnemyUnitsSpendExtraMovement)
     }
 
     fun updateCitiesConnectedToCapital(initialSetup: Boolean = false):Unit = timeThis("CivInfoTransientCache.updateCitiesConnectedToCapital") {
@@ -347,9 +346,7 @@ class CivInfoTransientCache(val civInfo: Civilization) {
         if (!civInfo.isCityState) {
             // First we get all these resources of each city state separately
             val cityStateProvidedResources = ResourceSupplyList()
-            var resourceBonusPercentage = 1f
-            for (unique in civInfo.getMatchingUniques(UniqueType.CityStateResources))
-                resourceBonusPercentage += unique.params[0].toFloat() / 100
+            val resourceBonusPercentage = civInfo.accumulateForEachMatchingUnique(UniqueType.CityStateResources, civInfo.state, 1f) { acc, unique -> acc + unique.params[0].toFloat() / 100 }
             for (cityStateAlly in civInfo.getKnownCivs().filter { it.allyCiv == civInfo }) {
                 for (resourceSupply in cityStateAlly.cityStateFunctions.getCityStateResourcesForAlly()) {
                     if (resourceSupply.resource.hasUnique(UniqueType.CannotBeTraded, cityStateAlly.state)) continue
@@ -361,14 +358,15 @@ class CivInfoTransientCache(val civInfo: Civilization) {
             newDetailedCivResources.addByResource(cityStateProvidedResources, Constants.cityStates)
         }
 
-        for (unique in civInfo.getMatchingUniques(UniqueType.ProvidesResources)) {
-            if (unique.sourceObjectType == UniqueTarget.Building || unique.sourceObjectType == UniqueTarget.Wonder) continue // already calculated in city
-            val resource = civInfo.gameInfo.ruleset.tileResources[unique.params[1]]!!
-            newDetailedCivResources.add(
-                resource,
-                unique.getSourceNameForUser(),
-                (unique.params[0].toFloat() * civInfo.getResourceModifier(resource)).toInt()
-            )
+        civInfo.forEachMatchingUnique(UniqueType.ProvidesResources) { unique ->
+            if (unique.sourceObjectType != UniqueTarget.Building && unique.sourceObjectType != UniqueTarget.Wonder) { // already calculated in city
+                val resource = civInfo.gameInfo.ruleset.tileResources[unique.params[1]]!!
+                newDetailedCivResources.add(
+                    resource,
+                    unique.getSourceNameForUser(),
+                    (unique.params[0].toFloat() * civInfo.getResourceModifier(resource)).toInt()
+                )
+            }
         }
 
         for (diplomacyManager in civInfo.diplomacy.values)

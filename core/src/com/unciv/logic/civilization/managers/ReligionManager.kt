@@ -169,12 +169,11 @@ class ReligionManager : IsPartOfGameInfoSerialization {
     fun faithForNextGreatProphet(): Int {
         val greatProphetsEarned = greatProphetsEarned()
 
-        var faithCost =
+        val baseFaithCost =
             (200 + 100 * greatProphetsEarned * (greatProphetsEarned + 1) / 2f) *
             civInfo.gameInfo.speed.faithCostModifier
 
-        for (unique in civInfo.getMatchingUniques(UniqueType.FaithCostOfGreatProphetChange))
-            faithCost *= unique.params[0].toPercent()
+        val faithCost = civInfo.accumulateForEachMatchingUnique(UniqueType.FaithCostOfGreatProphetChange, civInfo.state, baseFaithCost) { acc, unique -> acc * unique.params[0].toPercent() }
 
         return faithCost.toInt()
     }
@@ -401,14 +400,15 @@ class ReligionManager : IsPartOfGameInfoSerialization {
         }
         chooseBeliefToAdd(BeliefType.Follower, 1)
 
-        for (unique in civInfo.getMatchingUniques(UniqueType.FreeExtraBeliefs)) {
-            if (unique.params[2] != action) continue
-            val type = BeliefType.valueOf(unique.params[1])
-            chooseBeliefToAdd(type, unique.params[0].toInt())
+        civInfo.forEachMatchingUnique(UniqueType.FreeExtraBeliefs) { unique ->
+            if (unique.params[2] == action) {
+                val type = BeliefType.valueOf(unique.params[1])
+                chooseBeliefToAdd(type, unique.params[0].toInt())
+            }
         }
-        for (unique in civInfo.getMatchingUniques(UniqueType.FreeExtraAnyBeliefs)) {
-            if (unique.params[1] != action) continue
-            chooseBeliefToAdd(BeliefType.Any, unique.params[0].toInt())
+        civInfo.forEachMatchingUnique(UniqueType.FreeExtraAnyBeliefs) { unique ->
+            if (unique.params[1] == action)
+                chooseBeliefToAdd(BeliefType.Any, unique.params[0].toInt())
         }
 
         for (type in freeBeliefsAsEnums())

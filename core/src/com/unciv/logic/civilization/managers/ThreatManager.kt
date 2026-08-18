@@ -65,7 +65,7 @@ class ThreatManager(val civInfo: Civilization) {
         val tilesWithEnemyAtDistance: MutableList<Pair<Tile,Int>> = mutableListOf()
         // Search for nearby enemies and store the results
         for (i in minDistanceToSearch..maxDist) {
-            for (searchTile in tile.getTilesAtDistance(i)) {
+            tile.forEachTileAtDistance(i) { searchTile ->
                 if (doesTileHaveMilitaryEnemy(searchTile)) {
                     tilesWithEnemyAtDistance.add(Pair(searchTile, i))
                 }
@@ -116,7 +116,7 @@ class ThreatManager(val civInfo: Civilization) {
         val minDistanceToSearch = (tileData?.distanceSearched?.coerceAtLeast(0) ?: 0) + 1
 
         for (i in minDistanceToSearch..maxDist) {
-            for (searchTile in tile.getTilesAtDistance(i)) {
+            tile.forEachTileAtDistance(i) { searchTile ->
                 if (doesTileHaveMilitaryEnemy(searchTile)) {
                     tilesWithEnemies.add(searchTile)
                     tileDataTilesWithEnemies.add(Pair(searchTile, i))
@@ -146,13 +146,13 @@ class ThreatManager(val civInfo: Civilization) {
         val nearbyRangedEnemyUnits = getEnemyUnitsOnTiles(tilesWithEnemyUnits)
 
         val tilesInRangeOfAttack = nearbyRangedEnemyUnits
-            .flatMap { it.getTile().getTilesInDistance(it.getRange()) }
+            .flatMap { it.getTile().getTilesInDistanceSnapshot(it.getRange()) }
 
         val tilesWithinBombardmentRange = tilesWithEnemyUnits
             .filter { it.isCityCenter() && it.getCity()!!.civ.isAtWarWith(unit.civ) }
-            .flatMap { it.getTilesInDistance(it.getCity()!!.getBombardRange()) }
+            .flatMap { it.getTilesInDistanceSnapshot(it.getCity()!!.getBombardRange()) }
 
-        val tilesWithTerrainDamage = unit.currentTile.getTilesInDistance(distance)
+        val tilesWithTerrainDamage = unit.currentTile.getTilesInDistanceSnapshot(distance)
             .filter { unit.getDamageFromTerrain(it) > 0 }
 
         return (tilesInRangeOfAttack + tilesWithinBombardmentRange + tilesWithTerrainDamage).toHashSet()

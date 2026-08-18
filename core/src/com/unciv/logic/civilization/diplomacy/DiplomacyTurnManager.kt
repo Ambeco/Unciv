@@ -146,13 +146,14 @@ object DiplomacyTurnManager {
             // If we have uniques that make city states grant military units faster when at war with a common enemy, add higher numbers to this flag
             if (flag == DiplomacyFlags.ProvideMilitaryUnit.name && civInfo.isMajorCiv() && otherCiv.isCityState &&
                 civInfo.gameInfo.civilizations.any { civInfo.isAtWarWith(it) && otherCiv.isAtWarWith(it) }) {
-                for (unique in civInfo.getMatchingUniques(UniqueType.CityStateMoreGiftedUnits)) {
+                // Uses the predicate as a break-once-done signal, since forEachMatchingUnique can't be short-circuited.
+                civInfo.firstMatchingUniqueOrNull(UniqueType.CityStateMoreGiftedUnits) { unique ->
                     flagsCountdown[DiplomacyFlags.ProvideMilitaryUnit.name] =
                         flagsCountdown[DiplomacyFlags.ProvideMilitaryUnit.name]!! - unique.params[0].toInt() + 1
                     if (flagsCountdown[DiplomacyFlags.ProvideMilitaryUnit.name]!! <= 0) {
                         flagsCountdown[DiplomacyFlags.ProvideMilitaryUnit.name] = 0
-                        break
-                    }
+                        true
+                    } else false
                 }
             }
 

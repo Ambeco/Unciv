@@ -122,14 +122,15 @@ class UnitManager(val civInfo: Civilization) {
             }
         }
 
-        for (unique in civInfo.getTriggeredUniques(UniqueType.TriggerUponGainingUnit, unit.cache.state) 
-                { unit.matchesFilter(it.params[0]) })
+        civInfo.forEachTriggeredUnique(UniqueType.TriggerUponGainingUnit, unit.cache.state,
+                { unit.matchesFilter(it.params[0]) }) { unique ->
             UniqueTriggerActivation.triggerUnique(unique, unit, triggerNotificationText = triggerNotificationText)
+        }
 
         if (unit.getResourceRequirementsPerTurn().isNotEmpty())
             civInfo.cache.updateCivResources()
 
-        for (unique in civInfo.getMatchingUniques(UniqueType.LandUnitsCrossTerrainAfterUnitGained, unit.cache.state)) {
+        civInfo.forEachMatchingUnique(UniqueType.LandUnitsCrossTerrainAfterUnitGained, unit.cache.state) { unique ->
             if (unit.matchesFilter(unique.params[1])) {
                 civInfo.passThroughImpassableUnlocked = true    // Update the cached Boolean
                 civInfo.passableImpassables.add(unique.params[0])   // Add to list of passable impassables

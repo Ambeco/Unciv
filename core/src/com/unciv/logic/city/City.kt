@@ -692,11 +692,15 @@ class City : IsPartOfGameInfoSerialization, INamed {
     @Readonly
     @Deprecated(message = "forEachLocalMatchingUnique is faster. If not viable, then this can still be used",
         replaceWith = ReplaceWith("forEachLocalMatchingUnique"))
-    fun getLocalMatchingUniques(uniqueType: UniqueType, gameContext: GameContext = state): Sequence<Unique> {
-        val uniques = cityConstructions.builtBuildingUniqueMap.getUniques(uniqueType).filter { it.isLocalEffect } +
-            religion.getUniques(uniqueType)
-        return uniques.filter { !it.isTimedTriggerable && it.conditionalsApply(gameContext) }
-                .flatMap { it.getMultiplied(gameContext) }
+    fun getLocalMatchingUniques(uniqueType: UniqueType, gameContext: GameContext = state): Sequence<Unique> =
+        getLocalMatchingUniquesSnapshot(uniqueType, gameContext).asSequence()
+
+    /** @return a stable snapshot List of uniques special to this city */
+    @Readonly
+    fun getLocalMatchingUniquesSnapshot(uniqueType: UniqueType, gameContext: GameContext = state): List<Unique> {
+        val uniques = ArrayList<Unique>()
+        forEachLocalMatchingUnique(uniqueType, gameContext) { uniques.add(it) }
+        return uniques
     }
 
     // Uniques special to this city
