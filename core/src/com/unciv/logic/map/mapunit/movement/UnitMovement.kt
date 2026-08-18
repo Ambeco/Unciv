@@ -352,10 +352,10 @@ class UnitMovement(val unit: MapUnit) {
         return when {
             unit.cache.cannotMove -> sequenceOf(unit.getTile())
             unit.baseUnit.isAirUnit() ->
-                unit.getTile().getTilesInDistanceRange(IntRange(1, unit.getMaxMovementForAirUnits()))
+                unit.getTile().getTilesInDistanceRangeSnapshot(IntRange(1, unit.getMaxMovementForAirUnits())).asSequence()
             unit.isPreparingParadrop() -> {
-                unit.getTile().getTilesInDistance(unit.cache.paradropDestinationTileFilters.maxOf { it.value } )
-                    .filter { unit.movement.canParadropOn(it, it.aerialDistanceTo(unit.getTile())) }
+                unit.getTile().getTilesInDistanceSnapshot(unit.cache.paradropDestinationTileFilters.maxOf { it.value } )
+                    .asSequence().filter { unit.movement.canParadropOn(it, it.aerialDistanceTo(unit.getTile())) }
             }
             includeOtherEscortUnit && unit.isEscorting() -> {
                     val otherUnitTiles = unit.getOtherEscortUnit()!!.movement.getReachableTilesInCurrentTurn(false).toSet()
@@ -438,11 +438,14 @@ class UnitMovement(val unit: MapUnit) {
             return // This unit can stay here - e.g. it has "May enter foreign tiles without open borders"
         while (allowedTile == null && distance < 5) {
             distance++
-            allowedTile = unit.getTile().getTilesAtDistance(distance)
-                // can the unit be placed safely there? Is tile either unowned or friendly?
-                .filter { canMoveTo(it) && it.getOwner()?.isAtWarWith(unit.civ) != true }
-                // out of those where it can be placed, can it reach them in any meaningful way?
-                .firstOrNull { getPathBetweenTiles(unit.currentTile, it).contains(it) }
+            unit.getTile().forEachTileAtDistance(distance) { tile ->
+                if (allowedTile == null
+                    // can the unit be placed safely there? Is tile either unowned or friendly?
+                    && canMoveTo(tile) && tile.getOwner()?.isAtWarWith(unit.civ) != true
+                    // out of those where it can be placed, can it reach them in any meaningful way?
+                    && getPathBetweenTiles(unit.currentTile, tile).contains(tile)
+                ) allowedTile = tile
+            }
         }
 
         // No tile within 4 spaces? move him to a city.
@@ -453,13 +456,13 @@ class UnitMovement(val unit: MapUnit) {
 
         if (allowedTile != null) {
             unit.removeFromTile() // we "teleport" them away
-            unit.putInTile(allowedTile)
+            unit.putInTile(allowedTile!!)
             // Cancel sleep or fortification if forcibly displaced - for now, leave movement / auto / explore orders
             if (unit.isSleeping() || unit.isFortified() || unit.isGuarding())
                 unit.action = null
             unit.mostRecentMoveType = UnitMovementMemoryType.UnitTeleported
 
-            teleportTransportedUnitsTo(origin, allowedTile)
+            teleportTransportedUnitsTo(origin, allowedTile!!)
         }
         // it's possible that there is no close tile, and all the guy's cities are full.
         // Nothing we can do.
@@ -811,8 +814,7 @@ class UnitMovement(val unit: MapUnit) {
 
         val unitSpecificAllowOcean: Boolean by lazy {
             unit.civ.tech.specificUnitsCanEnterOcean &&
-                unit.civ.getMatchingUniques(UniqueType.UnitsMayEnterOcean)
-                    .any { unit.matchesFilter(it.params[0]) }
+                unit.civ.hasUnique(UniqueType.UnitsMayEnterOcean) { unit.matchesFilter(it.params[0]) }
         }
         if (tile.isWater && unit.baseUnit.isLandUnit && !unit.cache.canMoveOnWater) {
             if (!unit.civ.tech.unitsCanEmbark) return CannotMoveToReason.CannotEmbark
@@ -899,12 +901,11 @@ class UnitMovement(val unit: MapUnit) {
         while (tilesToCheck.isNotEmpty()) {
             val newTilesToCheck = ArrayList<Tile>()
             for (currentTileToCheck in tilesToCheck) {
-                val reachableTiles = currentTileToCheck.getTilesInDistance(unit.getRange())
-                    .filter { unit.movement.canMoveTo(it) }
-                for (reachableTile in reachableTiles) {
-                    if (tilesReached.containsKey(reachableTile)) continue
-                    tilesReached[reachableTile] = currentTileToCheck
-                    newTilesToCheck.add(reachableTile)
+                currentTileToCheck.forEachTileInDistance(unit.getRange(), { unit.movement.canMoveTo(it) }) { reachableTile ->
+                    if (!tilesReached.containsKey(reachableTile)) {
+                        tilesReached[reachableTile] = currentTileToCheck
+                        newTilesToCheck.add(reachableTile)
+                    }
                 }
             }
             tilesToCheck = newTilesToCheck

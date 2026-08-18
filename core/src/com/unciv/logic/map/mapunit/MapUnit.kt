@@ -430,37 +430,45 @@ class MapUnit : IsPartOfGameInfoSerialization {
         tempUniquesMap.forEachTriggeredUnique(trigger, gameContext, triggerFilter, op)
     }
 
+    /** @return a stable snapshot List of triggered uniques - unlike [forEachTriggeredUnique], safe to keep iterating
+     *  while triggering mutations to this unit's own uniques (which would otherwise risk a ConcurrentModificationException,
+     *  since [tempUniquesMap] is iterated live by [forEachTriggeredUnique]). */
+    @Readonly
+    fun getTriggeredUniquesSnapshot(
+        trigger: UniqueType,
+        gameContext: GameContext = cache.state,
+        triggerFilter: (Unique) -> Boolean = { true }
+    ): List<Unique> {
+        val list = ArrayList<Unique>()
+        forEachTriggeredUnique(trigger, gameContext, triggerFilter) { list.add(it) }
+        return list
+    }
+
 
     /** Gets *per turn* resource requirements - does not include immediate costs for stockpiled resources.
      * StateForConditionals is assumed to regarding this mapUnit*/
     @Readonly
     fun getResourceRequirementsPerTurn(): Counter<String> {
-        val resourceRequirements = Counter<String>()
+        @LocalState val resourceRequirements = Counter<String>()
         if (baseUnit.requiredResource != null) resourceRequirements[baseUnit.requiredResource!!] = 1
-        for (unique in getMatchingUniques(UniqueType.ConsumesResources, cache.state))
-            resourceRequirements.add(unique.params[1], unique.params[0].toInt())
+        forEachMatchingUnique(UniqueType.ConsumesResources, cache.state) {
+            resourceRequirements.add(it.params[1], it.params[0].toInt())
+        }
         return resourceRequirements
     }
 
     @Readonly
     fun requiresResource(resource: String): Boolean {
         if (getResourceRequirementsPerTurn().contains(resource)) return true
-        for (unique in getMatchingUniques(UniqueType.CostsResources, cache.state)) {
-            if (unique.params[1] == resource) return true
-        }
-        return false
+        return hasUnique(UniqueType.CostsResources, cache.state) { it.params[1] == resource }
     }
 
     @Readonly fun hasMovement() = currentMovement > 0
 
     @Readonly
     fun getMaxMovement(ignoreOtherUnit: Boolean = false): Int {
-        var movement =
-                if (isEmbarked()) 2
-                else baseUnit.movement
-
-        movement += getMatchingUniques(UniqueType.Movement, checkCivInfoUniques = true)
-                .sumOf { it.params[0].toInt() }
+        var movement = accumulateForEachMatchingUnique(UniqueType.Movement, cache.state, checkCivInfoUniques = true,
+            if (isEmbarked()) 2 else baseUnit.movement) { acc, unique -> acc + unique.params[0].toInt() }
 
         if (movement < 1) movement = 1
 
@@ -470,9 +478,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
         if (!ignoreOtherUnit) { // if both units can boost the other, we avoid an endless loop
             for (boostingUnit in currentTile.getUnits()) {
                 if (boostingUnit == this) continue
-                if (boostingUnit.getMatchingUniques(UniqueType.TransferMovement)
-                        .none { matchesFilter(it.params[0]) }
-                ) continue
+                if (!boostingUnit.hasUnique(UniqueType.TransferMovement) { matchesFilter(it.params[0]) }) continue
                 movement = movement.coerceAtLeast(boostingUnit.getMaxMovement(true))
             }
         }
@@ -492,13 +498,11 @@ class MapUnit : IsPartOfGameInfoSerialization {
      */
     @Readonly
     fun getVisibilityRange(): Int {
-        var visibilityRange = 2
-
         val conditionalState = cache.state
 
-        val relevantUniques = getMatchingUniques(UniqueType.Sight, conditionalState, checkCivInfoUniques = true) +
-                getTile().getMatchingUniques(UniqueType.Sight, conditionalState)
-        visibilityRange += relevantUniques.sumOf { it.params[0].toInt() }
+        var visibilityRange = accumulateForEachMatchingUnique(UniqueType.Sight, conditionalState, checkCivInfoUniques = true, 2) { acc, unique -> acc + unique.params[0].toInt() }
+        // Tile.getMatchingUniques isn't deprecated: it aggregates terrain + improvement uniques and has no forEach equivalent.
+        visibilityRange += getTile().getMatchingUniques(UniqueType.Sight, conditionalState).sumOf { it.params[0].toInt() }
 
         if (visibilityRange < 1) visibilityRange = 1
 
@@ -507,8 +511,8 @@ class MapUnit : IsPartOfGameInfoSerialization {
 
     @Readonly
     fun maxAttacksPerTurn(): Int {
-        return 1 + getMatchingUniques(UniqueType.AdditionalAttacks, checkCivInfoUniques = true)
-                .sumOf { it.params[0].toInt() }
+        val extraAttacks = accumulateForEachMatchingUnique(UniqueType.AdditionalAttacks, cache.state, checkCivInfoUniques = true, 0) { acc, unique -> acc + unique.params[0].toInt() }
+        return 1 + extraAttacks
     }
 
     @Readonly
@@ -521,10 +525,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
     @Readonly
     fun getRange(): Int {
         if (baseUnit.isMelee()) return 1
-        var range = baseUnit.range
-        range += getMatchingUniques(UniqueType.Range, checkCivInfoUniques = true)
-                .sumOf { it.params[0].toInt() }
-        return range
+        return accumulateForEachMatchingUnique(UniqueType.Range, cache.state, checkCivInfoUniques = true, baseUnit.range) { acc, unique -> acc + unique.params[0].toInt() }
     }
 
     @Readonly fun getMaxMovementForAirUnits(): Int = getRange() * 2
@@ -541,7 +542,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
         if (hasUnique(UniqueType.Invisible) && !to.isSpectator())
             return true
         if (hasUnique(UniqueType.InvisibleToNonAdjacent) && !to.isSpectator())
-            return getTile().getTilesInDistance(1).none {
+            return !getTile().anyTileInDistance(1) {
                 it.getUnits().any { unit -> unit.civ == to }
             }
         return false
@@ -561,7 +562,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
 
     @Readonly
     private fun adjacentHealingBonus(): Int {
-        return getMatchingUniques(UniqueType.HealAdjacentUnits).sumOf { it.params[0].toInt() }
+        return accumulateForEachMatchingUnique(UniqueType.HealAdjacentUnits, cache.state, 0) { acc, unique -> acc + unique.params[0].toInt() }
     }
 
     @Readonly
@@ -594,15 +595,16 @@ class MapUnit : IsPartOfGameInfoSerialization {
         @Suppress("KotlinConstantConditions") // Warning is right, but `return healing` reads nicer than `return 0`
         if (!mayHeal) return healing
 
-        healing += getMatchingUniques(UniqueType.Heal, checkCivInfoUniques = true).sumOf { it.params[0].toInt() }
+        healing = accumulateForEachMatchingUnique(UniqueType.Heal, cache.state, checkCivInfoUniques = true, healing) { acc, unique -> acc + unique.params[0].toInt() }
 
-        val healingCity = tile.getTilesInDistance(1).firstOrNull {
-            it.isCityCenter() && it.getCity()!!.getMatchingUniques(UniqueType.CityHealingUnits).any()
+        val healingCity = tile.firstTileInDistanceOrNull(1) {
+            it.isCityCenter() && it.getCity()!!.hasMatchingUnique(UniqueType.CityHealingUnits) { true }
         }?.getCity()
         if (healingCity != null) {
-            for (unique in healingCity.getMatchingUniques(UniqueType.CityHealingUnits)) {
-                if (!matchesFilter(unique.params[0]) || !isAlly(healingCity.civ)) continue // only heal our units or allied units
-                healing += unique.params[1].toInt()
+            healing = healingCity.accumulateForEachMatchingUnique(UniqueType.CityHealingUnits, healingCity.state, healing) { acc, unique ->
+                if (matchesFilter(unique.params[0]) && isAlly(healingCity.civ)) // only heal our units or allied units
+                    acc + unique.params[1].toInt()
+                else acc
             }
         }
 
@@ -632,9 +634,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
 
     @Readonly
     fun getInterceptionRange(): Int {
-        val rangeFromUniques = getMatchingUniques(UniqueType.AirInterceptionRange, checkCivInfoUniques = true)
-                .sumOf { it.params[0].toInt() }
-        return baseUnit.interceptRange + rangeFromUniques
+        return accumulateForEachMatchingUnique(UniqueType.AirInterceptionRange, cache.state, checkCivInfoUniques = true, baseUnit.interceptRange) { acc, unique -> acc + unique.params[0].toInt() }
     }
 
     @Readonly
@@ -642,29 +642,24 @@ class MapUnit : IsPartOfGameInfoSerialization {
         if (interceptChance() == 0) return false
         // Air Units can only Intercept if they didn't move this turn
         if (baseUnit.isAirUnit() && !hasMovement()) return false
-        val maxAttacksPerTurn = 1 +
-                getMatchingUniques(UniqueType.ExtraInterceptionsPerTurn)
-                        .sumOf { it.params[0].toInt() }
+        val extraInterceptions = accumulateForEachMatchingUnique(UniqueType.ExtraInterceptionsPerTurn, cache.state, 0) { acc, unique -> acc + unique.params[0].toInt() }
+        val maxAttacksPerTurn = 1 + extraInterceptions
         return attacksThisTurn < maxAttacksPerTurn
     }
 
     @Readonly
     fun interceptChance(): Int {
-        return getMatchingUniques(UniqueType.ChanceInterceptAirAttacks).sumOf { it.params[0].toInt() }
+        return accumulateForEachMatchingUnique(UniqueType.ChanceInterceptAirAttacks, cache.state, 0) { acc, unique -> acc + unique.params[0].toInt() }
     }
 
     @Readonly
     fun interceptDamagePercentBonus(): Int {
-        return getMatchingUniques(UniqueType.DamageWhenIntercepting)
-                .sumOf { it.params[0].toInt() }
+        return accumulateForEachMatchingUnique(UniqueType.DamageWhenIntercepting, cache.state, 0) { acc, unique -> acc + unique.params[0].toInt() }
     }
 
     @Readonly
     fun receivedInterceptDamageFactor(): Float {
-        var damageFactor = 1f
-        for (unique in getMatchingUniques(UniqueType.DamageFromInterceptionReduced))
-            damageFactor *= 1f - unique.params[0].toFloat() / 100f
-        return damageFactor.coerceAtLeast(0f)
+        return accumulateForEachMatchingUnique(UniqueType.DamageFromInterceptionReduced, cache.state, 1f) { acc, unique -> acc * (1f - unique.params[0].toFloat() / 100f) }
     }
 
     @Readonly
@@ -676,31 +671,34 @@ class MapUnit : IsPartOfGameInfoSerialization {
     fun isTransportTypeOf(mapUnit: MapUnit): Boolean {
         // Currently, only missiles and airplanes can be carried
         if (!mapUnit.baseUnit.isAirUnit()) return false
-        return getMatchingUniques(UniqueType.CarryAirUnits).any { mapUnit.matchesFilter(it.params[1]) }
+        return hasUnique(UniqueType.CarryAirUnits) { mapUnit.matchesFilter(it.params[1]) }
     }
 
     @Readonly
     private fun carryCapacity(unit: MapUnit): Int {
-        return (getMatchingUniques(UniqueType.CarryAirUnits)
-                + getMatchingUniques(UniqueType.CarryExtraAirUnits))
-                .filter { unit.matchesFilter(it.params[1]) }
-                .sumOf { it.params[0].toInt() }
+        var capacity = accumulateForEachMatchingUnique(UniqueType.CarryAirUnits, cache.state, 0) { acc, unique ->
+            if (unit.matchesFilter(unique.params[1])) acc + unique.params[0].toInt() else acc
+        }
+        capacity = accumulateForEachMatchingUnique(UniqueType.CarryExtraAirUnits, cache.state, capacity) { acc, unique ->
+            if (unit.matchesFilter(unique.params[1])) acc + unique.params[0].toInt() else acc
+        }
+        return capacity
     }
 
     @Readonly
     fun canTransport(unit: MapUnit): Boolean {
         if (owner != unit.owner) return false
         if (!isTransportTypeOf(unit)) return false
-        if (unit.getMatchingUniques(UniqueType.CannotBeCarriedBy).any { matchesFilter(it.params[0]) }) return false
+        if (unit.hasUnique(UniqueType.CannotBeCarriedBy) { matchesFilter(it.params[0]) }) return false
         if (currentTile.airUnits.count { it.isTransported } >= carryCapacity(unit)) return false
         return true
     }
 
     /** Gets a Nuke's blast radius from the BlastRadius unique, defaulting to 2. No check whether the unit actually is a Nuke. */
     @Readonly
-    fun getNukeBlastRadius() = getMatchingUniques(UniqueType.BlastRadius)
-            // Don't check conditionals as these are not supported
-            .firstOrNull()?.params?.get(0)?.toInt() ?: 2
+    fun getNukeBlastRadius(): Int 
+        // Don't check conditionals as these are not supported
+        = firstMatchingUniqueOrNull(UniqueType.BlastRadius) { true }?.params?.get(0)?.toInt() ?: 2
 
     @Readonly
     private fun isAlly(otherCiv: Civilization): Boolean {
@@ -746,21 +744,18 @@ class MapUnit : IsPartOfGameInfoSerialization {
                 && improvement.name != Constants.cancelImprovementOrder
                 && tile.improvementInProgress != improvement.name
         ) return false
-        val buildImprovementUniques = getMatchingUniques(UniqueType.BuildImprovements)
         if (tile.improvementInProgress == Constants.repair) {
             if (tile.isEnemyTerritory(civ)) return false
-            return buildImprovementUniques.any()
+            return hasUnique(UniqueType.BuildImprovements)
         }
 
         // Validate that the improvement is available for the unit
-        if (improvement.getMatchingUniques(UniqueType.OnlyAvailable, GameContext.IgnoreConditionals)
-                .any { unique -> !unique.conditionalsApply(cache.state) } ||
-            improvement.getMatchingUniques(UniqueType.Unavailable, GameContext.IgnoreConditionals)
-                .any { unique -> unique.conditionalsApply(cache.state) }) {
+        if (improvement.hasMatchingUnique(UniqueType.OnlyAvailable, GameContext.IgnoreConditionals) { unique -> !unique.conditionalsApply(cache.state) } ||
+            improvement.hasMatchingUnique(UniqueType.Unavailable, GameContext.IgnoreConditionals) { unique -> unique.conditionalsApply(cache.state) }) {
             return false
         }
 
-        return buildImprovementUniques.any { unique ->
+        return hasUnique(UniqueType.BuildImprovements) { unique ->
             // Engage the MultiFilter on the entire filter, prior to checking the individual filters
             MultiFilter.multiFilter(unique.params[0], {
                 improvement.matchesFilter(it, cache.state) || tile.matchesTerrainFilter(it, civ)
@@ -863,7 +858,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
         viewableTiles = when {
             hasUnique(UniqueType.NoSight) -> hashSetOf(getTile()) // 0 sight distance still means we can see the Tile we're in
             hasUnique(UniqueType.CanSeeOverObstacles) ->
-                getTile().getTilesInDistance(getVisibilityRange()).toHashSet() // it's that simple
+                getTile().getTilesInDistanceSnapshot(getVisibilityRange()).toHashSet() // it's that simple
             else -> getTile().getViewableTilesList(getVisibilityRange()).toHashSet()
         }
 
@@ -876,7 +871,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
 
         if (!shouldUpdateTiles) return
 
-        val unfilteredTriggeredUniques = getTriggeredUniques(UniqueType.TriggerUponDiscoveringTile, GameContext.IgnoreConditionals).toList()
+        val unfilteredTriggeredUniques = getTriggeredUniquesSnapshot(UniqueType.TriggerUponDiscoveringTile, GameContext.IgnoreConditionals)
         if (unfilteredTriggeredUniques.isNotEmpty()) {
             val newlyExploredTiles = viewableTiles.filter { !it.isExplored(civ) }
             for (tile in newlyExploredTiles) {
@@ -1006,9 +1001,10 @@ class MapUnit : IsPartOfGameInfoSerialization {
 
     /** Destroys the unit and gives stats if its a great person */
     fun consume() {
-        for (unique in civ.getTriggeredUniques(UniqueType.TriggerUponExpendingUnit){ matchesFilter(it.params[0]) })
+        civ.forEachTriggeredUnique(UniqueType.TriggerUponExpendingUnit, triggerFilter = { matchesFilter(it.params[0]) }) { unique ->
             UniqueTriggerActivation.triggerUnique(unique, this,
                 triggerNotificationText = "due to expending our [${this.name}]")
+        }
         destroy()
     }
 
@@ -1036,7 +1032,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
 
 
         // To allow triggering on barb camps and ruins, must happen before entering them
-        val triggeredUniques = getTriggeredUniques(UniqueType.TriggerUponEnteringTile) { tile.matchesFilter(it.params[0]) }
+        val triggeredUniques = getTriggeredUniquesSnapshot(UniqueType.TriggerUponEnteringTile) { tile.matchesFilter(it.params[0]) }
         for (triggeredUnique in triggeredUniques)
             UniqueTriggerActivation.triggerUnique(triggeredUnique, this)
 
@@ -1055,13 +1051,11 @@ class MapUnit : IsPartOfGameInfoSerialization {
             BattleUnitCapture.captureCivilianUnit(MapUnitCombatant(this), MapUnitCombatant(tile.civilianUnit!!))
         }
 
-        val promotionUniques = tile.neighbors
-                .flatMap { it.allTerrains }
-                .flatMap { it.getMatchingUniques(UniqueType.TerrainGrantsPromotion) }
-        for (unique in promotionUniques) {
-            if (!this.matchesFilter(unique.params[2])) continue
-            val promotion = unique.params[0]
-            promotions.addPromotion(promotion, true)
+        for (neighborTerrain in tile.neighbors.flatMap { it.allTerrains }) {
+            neighborTerrain.forEachMatchingUnique(UniqueType.TerrainGrantsPromotion, GameContext.EmptyState) { unique ->
+                if (this.matchesFilter(unique.params[2]))
+                    promotions.addPromotion(unique.params[0], true)
+            }
         }
 
         updateVisibleTiles(true, currentTile.position)
@@ -1118,10 +1112,10 @@ class MapUnit : IsPartOfGameInfoSerialization {
         var goldGained = civ.getDifficulty().clearBarbarianCampReward.toFloat()
 
         // German unique
-        for (unique in civ.getMatchingUniques(UniqueType.GainFromEncampment)) {
+        civ.forEachMatchingUnique(UniqueType.GainFromEncampment) { unique ->
             goldGained += unique.params[0].toInt()
             val recruitedUnit = civ.gameInfo.barbarians.spawnBarbarian(tile, civ)
-                ?: continue
+                ?: return@forEachMatchingUnique
             recruitedUnit.health = 50
             recruitedUnit.currentMovement = 0f
             civ.addNotification(
@@ -1135,8 +1129,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
         goldGained *= civ.gameInfo.speed.goldCostModifier
         
         // Songhai unique
-        for (unique in civ.getMatchingUniques(UniqueType.GoldFromEncampmentsAndCities, cache.state))
-            goldGained *= unique.params[0].toPercent()
+        civ.forEachMatchingUnique(UniqueType.GoldFromEncampmentsAndCities, cache.state) { goldGained *= it.params[0].toPercent() }
 
         civ.addGold(goldGained.toInt())
         civ.addNotification(
@@ -1165,8 +1158,9 @@ class MapUnit : IsPartOfGameInfoSerialization {
             if (unit.currentMovement < Constants.minimumMovementEpsilon)
                 unit.disband()
             // let's find closest city or another carrier where it can be evacuated
-            val tileCanMoveTo = unit.currentTile.getTilesInDistance(unit.getMaxMovementForAirUnits())
-                    .filterNot { it == currentTile }.firstOrNull { unit.movement.canMoveTo(it) }
+            val tileCanMoveTo = unit.currentTile.firstTileInDistanceOrNull(unit.getMaxMovementForAirUnits()) {
+                it != currentTile && unit.movement.canMoveTo(it)
+            }
 
             if (tileCanMoveTo != null)
                 unit.movement.moveToTile(tileCanMoveTo)
@@ -1238,7 +1232,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
         statusMap[status.name] = status
         updateUniques()
 
-        for (unique in getTriggeredUniques(UniqueType.TriggerUponStatusGain){ it.params[0] == name })
+        for (unique in getTriggeredUniquesSnapshot(UniqueType.TriggerUponStatusGain){ it.params[0] == name })
             UniqueTriggerActivation.triggerUnique(unique, this)
     }
 
@@ -1247,7 +1241,7 @@ class MapUnit : IsPartOfGameInfoSerialization {
 
         updateUniques()
 
-        for (unique in getTriggeredUniques(UniqueType.TriggerUponStatusLoss){ it.params[0] == name })
+        for (unique in getTriggeredUniquesSnapshot(UniqueType.TriggerUponStatusLoss){ it.params[0] == name })
             UniqueTriggerActivation.triggerUnique(unique, this)
     }
 

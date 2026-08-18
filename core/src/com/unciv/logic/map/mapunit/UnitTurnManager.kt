@@ -141,13 +141,13 @@ class UnitTurnManager(val unit: MapUnit) {
         unit.attacksThisTurn = 0
         unit.due = true
 
-        for (unique in unit.getTriggeredUniques(UniqueType.TriggerUponTurnStart))
+        for (unique in unit.getTriggeredUniquesSnapshot(UniqueType.TriggerUponTurnStart))
             UniqueTriggerActivation.triggerUnique(unique, unit)
 
         // Wake sleeping units if there's an enemy in vision range:
         // Military units always but civilians only if not protected.
         if (unit.isSleeping() && (unit.isMilitary() || (unit.currentTile.militaryUnit == null && !unit.currentTile.isCityCenter())) &&
-                unit.currentTile.getTilesInDistance(3).any {
+                unit.currentTile.anyTileInDistance(3) {
                     it.militaryUnit != null && it in unit.civ.viewableTiles && it.militaryUnit!!.civ.isAtWarWith(unit.civ)
                 }
         )  unit.action = null

@@ -600,8 +600,8 @@ class Civilization : IsPartOfGameInfoSerialization {
     @Readonly fun hasResource(resource: TileResource): Boolean = getResourceAmount(resource) > 0
 
     @Readonly
-    fun hasUnique(uniqueType: UniqueType, gameContext: GameContext = state) =
-        firstMatchingUniqueOrNull(uniqueType, gameContext) { true } != null
+    fun hasUnique(uniqueType: UniqueType, gameContext: GameContext = state, predicate: (Unique)->Boolean = { true }) =
+        firstMatchingUniqueOrNull(uniqueType, gameContext, predicate) != null
 
     // Does not return local uniques, only global ones.
     /** Destined to replace getMatchingUniques, gradually, as we fill the enum */
@@ -720,23 +720,22 @@ class Civilization : IsPartOfGameInfoSerialization {
         ignoreCities: Boolean,
         op: (Unique)->Unit,
     ) {
-        // Gathering all uniques into a list first since triggers can add e.g. buildings 
+        // Gathering all uniques into a list first since triggers can add e.g. buildings
         // which contain triggers, causing concurrent modification errors.
         // Cannont use getTriggeredUniques from uniqueMaps since we don't want to check conditionals yet
-        val uniqueFilter = { unique: Unique -> unique.getModifiers(trigger).any(triggerFilter) }
         val uniqueList = ArrayList<Unique>(100)
         val listOp: (Unique)->Unit = { unique: Unique -> uniqueList.add(unique) }
-        nation.uniqueMap.forEachMatchingUnique(trigger, gameContext, uniqueFilter, listOp)
+        nation.uniqueMap.forEachTriggeredUnique(trigger, gameContext, triggerFilter, listOp)
         if (!ignoreCities) {
             cities.forEach {city ->
-                city.cityConstructions.builtBuildingUniqueMap.forEachMatchingUnique(trigger, gameContext, uniqueFilter, listOp)
+                city.cityConstructions.builtBuildingUniqueMap.forEachTriggeredUnique(trigger, gameContext, triggerFilter, listOp)
             }
         }
-        religionManager.religion?.founderBeliefUniqueMap?.forEachMatchingUnique(trigger, gameContext, uniqueFilter, listOp)
-        policies.policyUniques.forEachMatchingUnique(trigger, gameContext, uniqueFilter, listOp)
-        tech.techUniques.forEachMatchingUnique(trigger, gameContext, uniqueFilter, listOp)
-        getEra().uniqueMap.forEachMatchingUnique(trigger, gameContext, uniqueFilter, listOp)
-        gameInfo.getGlobalUniques().uniqueMap.forEachMatchingUnique(trigger, gameContext, uniqueFilter, listOp)
+        religionManager.religion?.founderBeliefUniqueMap?.forEachTriggeredUnique(trigger, gameContext, triggerFilter, listOp)
+        policies.policyUniques.forEachTriggeredUnique(trigger, gameContext, triggerFilter, listOp)
+        tech.techUniques.forEachTriggeredUnique(trigger, gameContext, triggerFilter, listOp)
+        getEra().uniqueMap.forEachTriggeredUnique(trigger, gameContext, triggerFilter, listOp)
+        gameInfo.getGlobalUniques().uniqueMap.forEachTriggeredUnique(trigger, gameContext, triggerFilter, listOp)
         // now its safe to do the op, which might mutate the lists
         uniqueList.forEach(op)
     }

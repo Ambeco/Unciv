@@ -57,10 +57,8 @@ class UnitUpgradeManager(val unit: MapUnit) {
         // apply modifiers: Wonders (Pentagon), Policies (Professional Army). Cached outside loop despite
         // the UniqueType being allowed on a BaseUnit - we don't have a MapUnit in the loop.
         // Actually instantiating every intermediate to support such mods: todo
-        var civModifier = 1f
         val stateForConditionals = unit.cache.state
-        for (unique in unit.civ.getMatchingUniques(UniqueType.UnitUpgradeCost, stateForConditionals))
-            civModifier *= unique.params[0].toPercent()
+        val civModifier = unit.civ.accumulateForEachMatchingUnique(UniqueType.UnitUpgradeCost, stateForConditionals, 1f) { acc, unique -> acc * unique.params[0].toPercent() }
 
         var cost = constants.base
         cost += (constants.perProduction * (unitToUpgradeTo.cost - unit.baseUnit.cost)).coerceAtLeast(0f)
