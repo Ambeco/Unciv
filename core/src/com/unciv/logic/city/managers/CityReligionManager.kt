@@ -11,6 +11,7 @@ import com.unciv.models.ruleset.unique.GameContext
 import com.unciv.models.ruleset.unique.Unique
 import com.unciv.models.ruleset.unique.UniqueMap.Companion.NO_UNIQUE_FILTER
 import com.unciv.models.ruleset.unique.UniqueType
+import com.unciv.models.stats.Stats
 import com.unciv.ui.components.extensions.toPercent
 import yairm210.purity.annotations.Readonly
 
@@ -149,8 +150,9 @@ class CityReligionManager : IsPartOfGameInfoSerialization {
         val religionOwningCiv = newMajorityReligionObject.foundingCiv
         if (religionOwningCiv.hasUnique(UniqueType.StatsWhenAdoptingReligion)) {
             val statsGranted =
-                religionOwningCiv.getMatchingUniques(UniqueType.StatsWhenAdoptingReligion).map { it.stats.times(if (!it.isModifiedByGameSpeed()) 1f else city.civ.gameInfo.speed.modifier) }
-                .reduce { acc, stats -> acc + stats }
+                religionOwningCiv.accumulateForEachMatchingUnique(UniqueType.StatsWhenAdoptingReligion, religionOwningCiv.state, Stats()) { acc, unique ->
+                    acc + unique.stats.times(if (!unique.isModifiedByGameSpeed()) 1f else city.civ.gameInfo.speed.modifier)
+                }
 
             for ((key, value) in statsGranted)
                 religionOwningCiv.addStat(key, value.toInt())
@@ -293,14 +295,11 @@ class CityReligionManager : IsPartOfGameInfoSerialization {
     private fun getSpreadRange(): Int {
         var spreadRange = 10
 
-        for (unique in city.getMatchingUniques(UniqueType.ReligionSpreadDistance)) {
-            spreadRange += unique.params[0].toInt()
-        }
+        city.forEachMatchingUnique(UniqueType.ReligionSpreadDistance) { spreadRange += it.params[0].toInt() }
 
         val majorityReligion = getMajorityReligion()
         if (majorityReligion != null) {
-            for (unique in majorityReligion.foundingCiv.getMatchingUniques(UniqueType.ReligionSpreadDistance))
-                spreadRange += unique.params[0].toInt()
+            majorityReligion.foundingCiv.forEachMatchingUnique(UniqueType.ReligionSpreadDistance) { spreadRange += it.params[0].toInt() }
         }
 
         return spreadRange
@@ -330,24 +329,21 @@ class CityReligionManager : IsPartOfGameInfoSerialization {
     }
 
     @Readonly
-    fun isProtectedByInquisitor(fromReligion: String? = null): Boolean {
-        for (tile in city.getCenterTile().getTilesInDistance(1)) {
-            for (unit in listOf(tile.civilianUnit, tile.militaryUnit)) {
-                if (unit?.religion != null
+    fun isProtectedByInquisitor(fromReligion: String? = null): Boolean =
+        city.getCenterTile().anyTileInDistance(1) { tile ->
+            listOf(tile.civilianUnit, tile.militaryUnit).any { unit ->
+                unit?.religion != null
                     && (fromReligion == null || unit.religion != fromReligion)
                     && unit.hasUnique(UniqueType.PreventSpreadingReligion)
-                ) return true
             }
         }
-        return false
-    }
 
     @Readonly
     private fun pressureAmountToAdjacentCities(pressuredCity: City): Int {
         var pressure = pressureFromAdjacentCities.toFloat()
 
         // Follower beliefs of this religion
-        for (unique in city.getMatchingUniques(UniqueType.NaturalReligionSpreadStrength)) {
+        city.forEachMatchingUnique(UniqueType.NaturalReligionSpreadStrength) { unique ->
             if (pressuredCity.matchesFilter(unique.params[1]))
                 pressure *= unique.params[0].toPercent()
         }
@@ -355,9 +351,10 @@ class CityReligionManager : IsPartOfGameInfoSerialization {
         // Founder beliefs of this religion
         val majorityReligion = getMajorityReligion()
         if (majorityReligion != null) {
-            for (unique in majorityReligion.foundingCiv.getMatchingUniques(UniqueType.NaturalReligionSpreadStrength))
+            majorityReligion.foundingCiv.forEachMatchingUnique(UniqueType.NaturalReligionSpreadStrength) { unique ->
                 if (pressuredCity.matchesFilter(unique.params[1]))
                     pressure *= unique.params[0].toPercent()
+            }
         }
 
         return pressure.toInt()

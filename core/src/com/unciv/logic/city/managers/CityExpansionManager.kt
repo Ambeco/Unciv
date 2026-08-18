@@ -51,9 +51,9 @@ class CityExpansionManager : IsPartOfGameInfoSerialization {
         if (city.civ.isCityState)
             cultureToNextTile *= 1.5f   // City states grow slower, perhaps 150% cost?
 
-        for (unique in city.getMatchingUniques(UniqueType.BorderGrowthPercentage))
-            if (city.matchesFilter(unique.params[1]))
-                cultureToNextTile *= unique.params[0].toPercent()
+        cultureToNextTile = city.accumulateForEachMatchingUnique(UniqueType.BorderGrowthPercentage, city.state, cultureToNextTile) { acc, unique ->
+            if (city.matchesFilter(unique.params[1])) acc * unique.params[0].toPercent() else acc
+        }
 
         return cultureToNextTile.roundToInt()
     }
@@ -95,17 +95,16 @@ class CityExpansionManager : IsPartOfGameInfoSerialization {
 
         cost *= city.civ.gameInfo.speed.goldCostModifier
 
-        for (unique in city.getMatchingUniques(UniqueType.TileCostPercentage)) {
-            if (city.matchesFilter(unique.params[1]))
-                cost *= unique.params[0].toPercent()
+        cost = city.accumulateForEachMatchingUnique(UniqueType.TileCostPercentage, city.state, cost) { acc, unique ->
+            if (city.matchesFilter(unique.params[1])) acc * unique.params[0].toPercent() else acc
         }
 
         return cost.roundToInt()
     }
 
     @Readonly
-    fun getChoosableTiles() = city.getCenterTile().getTilesInDistance(city.getExpandRange())
-        .filter { it.getOwner() == null }
+    fun getChoosableTiles(): List<Tile> =
+        city.getCenterTile().getTilesInDistanceSnapshot(city.getExpandRange()).filter { it.getOwner() == null }
 
     @Readonly
     fun chooseNewTileToOwn(): Tile? {
@@ -129,9 +128,8 @@ class CityExpansionManager : IsPartOfGameInfoSerialization {
         // It becomes an invisible city and weird shit starts happening
         takeOwnership(city.getCenterTile())
 
-        for (tile in city.getCenterTile().getTilesInDistance(1)
-                .filter { it.getCity() == null }) // can't take ownership of owned tiles (by other cities)
-            takeOwnership(tile)
+        // can't take ownership of owned tiles (by other cities)
+        city.getCenterTile().forEachTileInDistance(1) { if (it.getCity() == null) takeOwnership(it) }
     }
 
     private fun addNewTileWithCulture(): HexCoord? {

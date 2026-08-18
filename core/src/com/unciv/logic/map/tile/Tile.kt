@@ -635,6 +635,7 @@ class Tile : IsPartOfGameInfoSerialization {
 
     @Readonly fun forEachTileInDistance(distance: Int, op: (Tile)->Unit) = tileMap.forEachTileInDistance(position, distance, op)
     @Readonly fun forEachTileInDistance(distance: Int, filter: (Tile)->Boolean, op: (Tile)->Unit) = tileMap.forEachTileInDistance(position, distance, filter, op)
+    @Readonly fun getTilesInDistanceSnapshot(distance: Int): List<Tile> = tileMap.getTilesInDistanceSnapshot(position, distance)
     @Readonly fun firstTileInDistanceOrNull(distance: Int, predicate: (Tile)->Boolean) = tileMap.firstTileInDistanceOrNull(position, distance, predicate)
     @Readonly fun firstTileInDistanceOrNull(distance: Int, filter: (Tile)->Boolean, predicate: (Tile)->Boolean) = tileMap.firstTileInDistanceOrNull(position, distance, filter, predicate)
     @Readonly fun anyTileInDistance(distance: Int, predicate: (Tile)->Boolean) = tileMap.anyTileInDistance(position, distance, predicate)

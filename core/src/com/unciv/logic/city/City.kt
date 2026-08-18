@@ -356,9 +356,9 @@ class City : IsPartOfGameInfoSerialization, INamed {
 
     /** Gets max air units that can remain in the city untransported */
     @Readonly fun getMaxAirUnits(): Int = civ.gameInfo.ruleset.modOptions.constants.cityAirUnitCapacity +
-        getMatchingUniques(UniqueType.CarryExtraAirUnits)
-            .filter { it.params[1] == "Air" }
-            .sumOf { it.params[0].toInt() }
+        accumulateForEachMatchingUnique(UniqueType.CarryExtraAirUnits, state, 0) { acc, unique ->
+            if (unique.params[1] == "Air") acc + unique.params[0].toInt() else acc
+        }
 
     override fun toString() = name // for debug
 
@@ -411,7 +411,8 @@ class City : IsPartOfGameInfoSerialization, INamed {
         tileMap = civInfo.gameInfo.tileMap
         centerTile = tileMap[location]
         state = GameContext(this)
-        tilesInRange = getCenterTile().getTilesInDistance(getWorkRange()).toHashSet()
+        // tilesInRange is a cached field read repeatedly elsewhere, so it has to be a real collection, not a one-off iteration
+        tilesInRange = HashSet(getCenterTile().getTilesInDistanceSnapshot(getWorkRange()))
         population.city = this
         expansion.city = this
         expansion.setTransients()
@@ -636,16 +637,20 @@ class City : IsPartOfGameInfoSerialization, INamed {
         uniqueType: UniqueType,
         gameContext: GameContext = state,
         includeCivUniques: Boolean = true
-    ): Sequence<Unique> {
-        return if (includeCivUniques)
-            civ.getMatchingUniques(uniqueType, gameContext) +
-                getLocalMatchingUniques(uniqueType, gameContext)
-        else (
-            cityConstructions.builtBuildingUniqueMap.getUniques(uniqueType)
-                + religion.getUniques(uniqueType)
-            ).filter {
-                !it.isTimedTriggerable && it.conditionalsApply(gameContext)
-            }.flatMap { it.getMultiplied(gameContext) }
+    ): Sequence<Unique> = getMatchingUniquesSnapshot(uniqueType, gameContext, includeCivUniques).asSequence()
+
+    /** @return a stable snapshot List of uniques matching [uniqueType], safe to keep iterating even if the
+     *  underlying uniques (e.g. built buildings) change mid-iteration - see [forEachTriggeredUnique]'s callers
+     *  in CityTurnManager for why a "get a stable snapshot" method is legitimately still needed sometimes. */
+    @Readonly
+    fun getMatchingUniquesSnapshot(
+        uniqueType: UniqueType,
+        gameContext: GameContext = state,
+        includeCivUniques: Boolean = true
+    ): List<Unique> {
+        val uniques = ArrayList<Unique>()
+        forEachMatchingUnique(uniqueType, gameContext, includeCivUniques) { uniques.add(it) }
+        return uniques
     }
 
     @Readonly
@@ -695,11 +700,15 @@ class City : IsPartOfGameInfoSerialization, INamed {
     @Readonly
     @Deprecated(message = "forEachLocalMatchingUnique is faster. If not viable, then this can still be used",
         replaceWith = ReplaceWith("forEachLocalMatchingUnique"))
-    fun getLocalMatchingUniques(uniqueType: UniqueType, gameContext: GameContext = state): Sequence<Unique> {
-        val uniques = cityConstructions.builtBuildingUniqueMap.getUniques(uniqueType).filter { it.isLocalEffect } +
-            religion.getUniques(uniqueType)
-        return uniques.filter { !it.isTimedTriggerable && it.conditionalsApply(gameContext) }
-                .flatMap { it.getMultiplied(gameContext) }
+    fun getLocalMatchingUniques(uniqueType: UniqueType, gameContext: GameContext = state): Sequence<Unique> =
+        getLocalMatchingUniquesSnapshot(uniqueType, gameContext).asSequence()
+
+    /** @return a stable snapshot List of uniques special to this city */
+    @Readonly
+    fun getLocalMatchingUniquesSnapshot(uniqueType: UniqueType, gameContext: GameContext = state): List<Unique> {
+        val uniques = ArrayList<Unique>()
+        forEachLocalMatchingUnique(uniqueType, gameContext) { uniques.add(it) }
+        return uniques
     }
 
     // Uniques special to this city
@@ -717,12 +726,15 @@ class City : IsPartOfGameInfoSerialization, INamed {
     @Readonly
     @Deprecated(message = "forEachMatchingUniqueWithNonLocalEffects is faster. If not viable, then this can still be used",
         replaceWith = ReplaceWith("forEachMatchingUniqueWithNonLocalEffects"))
-    fun getMatchingUniquesWithNonLocalEffects(uniqueType: UniqueType, gameContext: GameContext = state): Sequence<Unique> {
-        val uniques = cityConstructions.builtBuildingUniqueMap.getUniques(uniqueType)
-        // Memory performance showed that this function was very memory intensive, thus we only create the filter if needed
-        return if (uniques.any()) uniques.filter { !it.isLocalEffect && !it.isTimedTriggerable
-            && it.conditionalsApply(gameContext) }.flatMap { it.getMultiplied(gameContext) }
-        else uniques
+    fun getMatchingUniquesWithNonLocalEffects(uniqueType: UniqueType, gameContext: GameContext = state): Sequence<Unique> =
+        getMatchingUniquesWithNonLocalEffectsSnapshot(uniqueType, gameContext).asSequence()
+
+    /** @return a stable snapshot List of uniques coming from this city, but that should be provided globally */
+    @Readonly
+    fun getMatchingUniquesWithNonLocalEffectsSnapshot(uniqueType: UniqueType, gameContext: GameContext = state): List<Unique> {
+        val uniques = ArrayList<Unique>()
+        forEachMatchingUniqueWithNonLocalEffects(uniqueType, gameContext) { uniques.add(it) }
+        return uniques
     }
 
     // Uniques coming from this city, but that should be provided globally
@@ -756,18 +768,21 @@ class City : IsPartOfGameInfoSerialization, INamed {
         trigger: UniqueType,
         gameContext: GameContext = state,
         triggerFilter: (Unique) -> Boolean = { true },
-        includeCivUniques: Boolean = true): Sequence<Unique> {
-        if (includeCivUniques) {
-            return civ.getTriggeredUniques(trigger, gameContext, triggerFilter).asSequence() +
-                getLocalTriggeredUniques(trigger, gameContext, triggerFilter)
-        }
-        else {
-            val uniques =
-                cityConstructions.builtBuildingUniqueMap.getAllUniques() + religion.getAllUniques()
-            return uniques.filter {
-                it.getModifiers(trigger).any(triggerFilter) && it.conditionalsApply(gameContext)
-            }.flatMap { it.getMultiplied(gameContext) }
-        }
+        includeCivUniques: Boolean = true): Sequence<Unique> =
+        getTriggeredUniquesSnapshot(trigger, gameContext, triggerFilter, includeCivUniques).asSequence()
+
+    /** @return a stable snapshot List of triggered uniques - unlike [forEachTriggeredUnique], safe to keep iterating
+     *  while triggering mutations to the underlying uniques (e.g. a trigger that grants a building adds to
+     *  cityConstructions.builtBuildingUniqueMap, one of our sources, which would otherwise risk a ConcurrentModificationException). */
+    @Readonly
+    fun getTriggeredUniquesSnapshot(
+        trigger: UniqueType,
+        gameContext: GameContext = state,
+        triggerFilter: (Unique) -> Boolean = { true },
+        includeCivUniques: Boolean = true): List<Unique> {
+        val uniques = ArrayList<Unique>()
+        forEachTriggeredUnique(trigger, gameContext, triggerFilter, includeCivUniques) { uniques.add(it) }
+        return uniques
     }
 
     @Readonly

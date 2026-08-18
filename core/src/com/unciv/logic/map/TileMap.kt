@@ -299,6 +299,15 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
             forEachTileAtDistance(origin, i, filter, op)
     }
 
+    /** @return a stable snapshot List of all tiles in a hexagon of radius [distance], including the tile at [origin]
+     *  and all up to [distance] steps away. Respects map edges and world wrap. */
+    @Readonly
+    fun getTilesInDistanceSnapshot(origin: HexCoord, distance: Int): List<Tile> {
+        val tiles = ArrayList<Tile>()
+        forEachTileInDistance(origin, distance) { tiles.add(it) }
+        return tiles
+    }
+
     /** @return The first tile in a hexagon of radius [distance] (including the tile at [origin]) for which [predicate] returns true, or null if none does.
      *  Respects map edges and world wrap. */
     @Readonly

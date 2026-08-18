@@ -594,6 +594,10 @@ class Civilization : IsPartOfGameInfoSerialization {
     fun hasUnique(uniqueType: UniqueType, gameContext: GameContext = state) =
         firstMatchingUniqueOrNull(uniqueType, gameContext) { true } != null
 
+    @Readonly
+    fun hasMatchingUnique(uniqueType: UniqueType, gameContext: GameContext = state, predicate: (unique: Unique)->Boolean) =
+        firstMatchingUniqueOrNull(uniqueType, gameContext, predicate) != null
+
     // Does not return local uniques, only global ones.
     /** Destined to replace getMatchingUniques, gradually, as we fill the enum */
     @Readonly
@@ -602,21 +606,15 @@ class Civilization : IsPartOfGameInfoSerialization {
     fun getMatchingUniques(
         uniqueType: UniqueType,
         gameContext: GameContext = state
-    ): Sequence<Unique> = sequence {
-        yieldAll(nation.getMatchingUniques(uniqueType, gameContext))
-        yieldAll(cities.asSequence()
-            .flatMap { city -> city.getMatchingUniquesWithNonLocalEffects(uniqueType, gameContext) }
-        )
-        yieldAll(policies.policyUniques.getMatchingUniques(uniqueType, gameContext))
-        yieldAll(tech.techUniques.getMatchingUniques(uniqueType, gameContext))
-        yieldAll(temporaryUniques.getMatchingTagUniques(uniqueType, gameContext))
-        yieldAll(getEra().getMatchingUniques(uniqueType, gameContext))
-        yieldAll(cityStateFunctions.getUniquesProvidedByCityStates(uniqueType, gameContext))
-        if (religionManager.religion != null)
-            yieldAll(religionManager.religion!!.founderBeliefUniqueMap.getMatchingUniques(uniqueType, gameContext))
+    ): Sequence<Unique> = getMatchingUniquesSnapshot(uniqueType, gameContext).asSequence()
 
-        yieldAll(civResourcesUniqueMap.getMatchingUniques(uniqueType, gameContext))
-        yieldAll(gameInfo.getGlobalUniques().getMatchingUniques(uniqueType, gameContext))
+    /** @return a stable snapshot List of uniques matching [uniqueType], safe to keep iterating even if the
+     *  underlying uniques change mid-iteration - unlike [forEachMatchingUnique]. */
+    @Readonly
+    fun getMatchingUniquesSnapshot(uniqueType: UniqueType, gameContext: GameContext = state): List<Unique> {
+        val uniques = ArrayList<Unique>()
+        forEachMatchingUnique(uniqueType, gameContext) { uniques.add(it) }
+        return uniques
     }
 
     @Readonly

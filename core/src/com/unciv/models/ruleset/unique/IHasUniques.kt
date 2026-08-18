@@ -56,7 +56,16 @@ interface IHasUniques : INamed {
     @Readonly
     fun forEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, op: (unique: Unique)->Unit)
         = uniqueMap.forEachMatchingUnique(uniqueType, gameContext, op)
-    
+
+    /** @return a stable snapshot List of uniques matching [uniqueType], safe to keep iterating even if the
+     *  underlying uniques change mid-iteration - unlike [forEachMatchingUnique]. */
+    @Readonly
+    fun getMatchingUniquesSnapshot(uniqueType: UniqueType, gameContext: GameContext = GameContext.EmptyState): List<Unique> {
+        val uniques = ArrayList<Unique>()
+        forEachMatchingUnique(uniqueType, gameContext) { uniques.add(it) }
+        return uniques
+    }
+
     /** Folds [accumulate] over every unique matching [uniqueType], starting from [initial]. Useful for e.g. summing up bonuses. */
     @Readonly
     fun <T> accumulateForEachMatchingUnique(uniqueType: UniqueType, gameContext: GameContext, initial: T, accumulate: (T, Unique) -> T): T {

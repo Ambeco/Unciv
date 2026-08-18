@@ -56,7 +56,8 @@ class GreatPersonPointsBreakdown private constructor(private val ruleset: Rulese
         @Readonly
         private fun getPercentagesApplyingToAllGP(city: City) = sequence {
             // Now add boni for GreatPersonPointPercentage
-            for (unique in city.getMatchingUniques(UniqueType.GreatPersonPointPercentage)) {
+            // (collected into a snapshot List first since `yield` can't be called from within a forEachMatchingUnique callback)
+            for (unique in city.getMatchingUniquesSnapshot(UniqueType.GreatPersonPointPercentage)) {
                 if (!city.matchesFilter(unique.params[1])) continue
                 yield(AllGPPercentageEntry(getUniqueSourceName(unique), guessPediaLink(unique), unique.params[0].toInt()))
             }
@@ -66,8 +67,8 @@ class GreatPersonPointsBreakdown private constructor(private val ruleset: Rulese
             for (otherCiv in civ.getKnownCivs()) {
                 if (!civ.getDiplomacyManager(otherCiv)!!.hasFlag(DiplomacyFlags.DeclarationOfFriendship))
                     continue
-                val boostUniques = civ.getMatchingUniques(UniqueType.GreatPersonBoostWithFriendship) +
-                    otherCiv.getMatchingUniques(UniqueType.GreatPersonBoostWithFriendship)
+                val boostUniques = civ.getMatchingUniquesSnapshot(UniqueType.GreatPersonBoostWithFriendship) +
+                    otherCiv.getMatchingUniquesSnapshot(UniqueType.GreatPersonBoostWithFriendship)
                 for (unique in boostUniques)
                     yield(AllGPPercentageEntry("Declaration of Friendship", null, unique.params[0].toInt()))
             }
@@ -121,12 +122,13 @@ class GreatPersonPointsBreakdown private constructor(private val ruleset: Rulese
 
         // And last, the GPP-type-specific GreatPersonEarnedFaster Unique
         val stateForConditionals = city.state
-        for (unique in city.civ.getMatchingUniques(UniqueType.GreatPersonEarnedFaster, stateForConditionals)) {
+        city.civ.forEachMatchingUnique(UniqueType.GreatPersonEarnedFaster, stateForConditionals) { unique ->
             val gppName = unique.params[0]
-            if (gppName !in allNames) continue // No sense applying a percentage without base points
-            val bonusEntry = Entry(getUniqueSourceName(unique), guessPediaLink(unique))
-            bonusEntry.counter.add(gppName, unique.params[1].toInt())
-            percentBonuses.add(bonusEntry)
+            if (gppName in allNames) { // No sense applying a percentage without base points
+                val bonusEntry = Entry(getUniqueSourceName(unique), guessPediaLink(unique))
+                bonusEntry.counter.add(gppName, unique.params[1].toInt())
+                percentBonuses.add(bonusEntry)
+            }
         }
     }
 

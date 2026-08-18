@@ -25,7 +25,7 @@ class CityTurnManager(val city: City) {
             if (resource.resource.isStockpiled && resource.resource.isCityWide)
                 city.gainStockpiledResource(resource.resource, resource.amount)
         }
-        for (unique in city.getTriggeredUniques(UniqueType.TriggerUponTurnStart, includeCivUniques = false).toList()) {
+        for (unique in city.getTriggeredUniquesSnapshot(UniqueType.TriggerUponTurnStart, includeCivUniques = false)) {
             UniqueTriggerActivation.triggerUnique(unique, city)
         }
 
@@ -115,7 +115,7 @@ class CityTurnManager(val city: City) {
                     !it.hasUnique(UniqueType.CityStateOnlyResource) && // Not a city-state only resource eg jewelry
                     it.name != city.demandedResource && // Not same as last time
                     it in city.tileMap.resourceObjects && // Must exist somewhere on the map
-                    city.getCenterTile().getTilesInDistance(city.getWorkRange()).none { nearTile -> nearTile.tileResource == it } // Not in this city's radius
+                    !city.getCenterTile().anyTileInDistance(city.getWorkRange()) { nearTile -> nearTile.tileResource == it } // Not in this city's radius
         }
         val missingResources = candidates.filter { !city.civ.hasResource(it) }
         
@@ -137,7 +137,7 @@ class CityTurnManager(val city: City) {
 
 
     fun endTurn():Unit = timeThis("CityTurnManager.endTurn") {
-        for (unique in city.getTriggeredUniques(UniqueType.TriggerUponTurnEnd, includeCivUniques = false).toList()) {
+        for (unique in city.getTriggeredUniquesSnapshot(UniqueType.TriggerUponTurnEnd, includeCivUniques = false)) {
             UniqueTriggerActivation.triggerUnique(unique, city)
         }
         val stats = city.cityStats.currentCityStats
@@ -146,8 +146,7 @@ class CityTurnManager(val city: City) {
         city.expansion.nextTurn(stats.culture)
         if (city.isBeingRazed) {
             val removedPopulation =
-                    1 + city.civ.getMatchingUniques(UniqueType.CitiesAreRazedXTimesFaster)
-                        .sumOf { it.params[0].toInt() - 1 }
+                    1 + city.civ.accumulateForEachMatchingUnique(UniqueType.CitiesAreRazedXTimesFaster, city.civ.state, 0) { acc, unique -> acc + unique.params[0].toInt() - 1 }
 
             if (city.population.population <= removedPopulation) {
                 city.espionage.removeAllPresentSpies(SpyFleeReason.Other)

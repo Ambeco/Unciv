@@ -24,6 +24,7 @@ import com.unciv.models.ruleset.PerpetualConstruction
 import com.unciv.models.ruleset.RejectionReasonType
 import com.unciv.models.ruleset.Ruleset
 import com.unciv.models.ruleset.tile.TileImprovement
+import com.unciv.models.ruleset.unique.Unique
 import com.unciv.models.ruleset.unique.UniqueMap
 import com.unciv.models.ruleset.unique.UniqueTriggerActivation
 import com.unciv.models.ruleset.unique.UniqueType
@@ -132,8 +133,10 @@ class CityConstructions : IsPartOfGameInfoSerialization {
         var maintenanceCost = 0f
         val freeBuildings = city.civ.civConstructions.getFreeBuildingNames(city)
 
-        val buildingMaintenanceUniques = city.getMatchingUniques(UniqueType.BuildingMaintenance)
-            .filter { city.matchesFilter(it.params[2]) }.toList()
+        val buildingMaintenanceUniques = ArrayList<Unique>()
+        city.forEachMatchingUnique(UniqueType.BuildingMaintenance) {
+            if (city.matchesFilter(it.params[2])) buildingMaintenanceUniques.add(it)
+        }
 
         for (building in getBuiltBuildings().filterNot { it.name in freeBuildings }) {
             var maintenanceForThisBuilding = building.maintenance.toFloat()
@@ -669,13 +672,15 @@ class CityConstructions : IsPartOfGameInfoSerialization {
             }
         }
 
-        for (unique in city.getTriggeredUniques(UniqueType.TriggerUponConstructingBuilding, stateForConditionals,
-                { building.matchesFilter(it.params[0], stateForConditionals) }))
+        city.forEachTriggeredUnique(UniqueType.TriggerUponConstructingBuilding, stateForConditionals,
+                { building.matchesFilter(it.params[0], stateForConditionals) }) { unique ->
             UniqueTriggerActivation.triggerUnique(unique, city, triggerNotificationText = triggerNotificationText)
+        }
 
-        for (unique in city.getTriggeredUniques(UniqueType.TriggerUponConstructingBuildingCityFilter, stateForConditionals,
-                { building.matchesFilter(it.params[0], stateForConditionals) && city.matchesFilter(it.params[1]) }))
+        city.forEachTriggeredUnique(UniqueType.TriggerUponConstructingBuildingCityFilter, stateForConditionals,
+                { building.matchesFilter(it.params[0], stateForConditionals) && city.matchesFilter(it.params[1]) }) { unique ->
             UniqueTriggerActivation.triggerUnique(unique, city, triggerNotificationText = triggerNotificationText)
+        }
     }
 
     fun removeBuilding(buildingName: String) {
@@ -781,17 +786,16 @@ class CityConstructions : IsPartOfGameInfoSerialization {
 
             val conditionalState = city.state
 
-            if ((
-                    city.civ.getMatchingUniques(UniqueType.BuyUnitsIncreasingCost, conditionalState) +
-                    city.civ.getMatchingUniques(UniqueType.BuyBuildingsIncreasingCost, conditionalState)
-                ).any {
-                    (
-                        construction is BaseUnit && construction.matchesFilter(it.params[0], conditionalState) ||
-                        construction is Building && construction.matchesFilter(it.params[0], conditionalState)
-                    )
-                    && city.matchesFilter(it.params[3])
-                    && it.params[2] == stat.name
-                }
+            fun matchesIncreasingCostUnique(it: Unique) =
+                (
+                    construction is BaseUnit && construction.matchesFilter(it.params[0], conditionalState) ||
+                    construction is Building && construction.matchesFilter(it.params[0], conditionalState)
+                )
+                && city.matchesFilter(it.params[3])
+                && it.params[2] == stat.name
+
+            if (city.civ.hasMatchingUnique(UniqueType.BuyUnitsIncreasingCost, conditionalState, ::matchesIncreasingCostUnique)
+                || city.civ.hasMatchingUnique(UniqueType.BuyBuildingsIncreasingCost, conditionalState, ::matchesIncreasingCostUnique)
             ) {
                 city.civ.civConstructions.boughtItemsWithIncreasingPrice.add(construction.name, 1)
             }
@@ -818,7 +822,7 @@ class CityConstructions : IsPartOfGameInfoSerialization {
     @Readonly
     fun isConstructionPurchaseAllowed(construction: INonPerpetualConstruction, stat: Stat, constructionBuyCost: Int): Boolean {
         return when {
-            city.isPuppet && !city.getMatchingUniques(UniqueType.MayBuyConstructionsInPuppets).any() -> false
+            city.isPuppet && !city.hasMatchingUnique(UniqueType.MayBuyConstructionsInPuppets) { true } -> false
             city.isInResistance() -> false
             !construction.isPurchasable(city.cityConstructions) -> false    // checks via 'rejection reason'
             construction is BaseUnit && !city.canPlaceNewUnit(construction) -> false
@@ -831,8 +835,7 @@ class CityConstructions : IsPartOfGameInfoSerialization {
 
     @Readonly
     fun isConstructionPurchaseBlockedByUnit(construction: INonPerpetualConstruction): Boolean {
-        return !city.isPuppet && !city.getMatchingUniques(UniqueType.MayBuyConstructionsInPuppets)
-            .any() &&
+        return !city.isPuppet && !city.hasMatchingUnique(UniqueType.MayBuyConstructionsInPuppets) { true } &&
             !city.isInResistance() &&
             construction.isPurchasable(city.cityConstructions) &&
             (construction is BaseUnit) && !city.canPlaceNewUnit(construction)
