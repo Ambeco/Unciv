@@ -161,9 +161,11 @@ class MapGenerationRandomness {
                     .firstOrNull { availableTiles[it]!!.isNotEmpty() }
                     ?: break
                 val chosenTile = availableTiles[firstKeyWithTilesLeft]!!.random(RNG)
-                val closeTiles = chosenTile.getTilesInDistance(distanceBetweenResources).toSet()
-                for (availableSet in availableTiles.values)
-                    availableSet.removeAll(closeTiles)
+                for (availableSet in availableTiles.values) {
+                    chosenTile.forEachTileInDistance(distanceBetweenResources) { closeTile ->
+                        availableSet.remove(closeTile)
+                    }
+                }
                 chosenTiles.add(chosenTile)
                 baseTerrainsToChosenTiles[firstKeyWithTilesLeft] = baseTerrainsToChosenTiles[firstKeyWithTilesLeft]!! + 1
             }

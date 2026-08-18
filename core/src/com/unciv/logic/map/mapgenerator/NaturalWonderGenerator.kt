@@ -53,7 +53,7 @@ class NaturalWonderGenerator(val ruleset: Ruleset, val randomness: MapGeneration
             }
         }
 
-        val tilesTooCloseToSpawnLocations = tileMap.startingLocationsByNation.values.flatten().flatMap { it.getTilesInDistance(5) }.toSet()
+        val tilesTooCloseToSpawnLocations = tileMap.startingLocationsByNation.values.flatten().flatMap { it.getTilesInDistanceSnapshot(5) }.toSet()
 
         // First attempt to spawn the chosen wonders in order of least candidate tiles
         chosenWonders.forEach {
@@ -126,7 +126,7 @@ class NaturalWonderGenerator(val ruleset: Ruleset, val randomness: MapGeneration
                 for (tileToConvert in list) {
                     placeNaturalWonder(wonder, tileToConvert)
                     // Add all tiles within a certain distance to a blacklist so NW:s don't cluster
-                    blockedTiles.addAll(tileToConvert.getTilesInDistance(tileToConvert.tileMap.mapParameters.mapSize.height / 5))
+                    tileToConvert.forEachTileInDistance(tileToConvert.tileMap.mapParameters.mapSize.height / 5) { blockedTiles.add(it) }
                 }
 
                 debug("Natural Wonder %s @%s", wonder.name, location.position)

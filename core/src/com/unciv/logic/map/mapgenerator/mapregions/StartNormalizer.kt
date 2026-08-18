@@ -53,16 +53,14 @@ object StartNormalizer {
         // evaluate production potential
         val innerProduction =
             startTile.neighbors.sumOf { getPotentialYield(it, Stat.Production).toInt() }
-        val outerProduction =
-            startTile.getTilesAtDistance(2).sumOf { getPotentialYield(it, Stat.Production).toInt() }
+        val outerProduction = startTile.accumulateForEachTileAtDistance(2, 0) { acc, tile ->
+            acc + getPotentialYield(tile, Stat.Production).toInt()
+        }
         // for very early production we ideally want tiles that also give food
-        val earlyProduction = startTile.getTilesInDistanceRange(1..2).sumOf {
-            if (getPotentialYield(it, Stat.Food, unimproved = true) > 0f) getPotentialYield(
-                it,
-                Stat.Production,
-                unimproved = true
-            ).toInt()
-            else 0
+        val earlyProduction = startTile.accumulateForEachTileInDistanceRange(1..2, 0) { acc, tile ->
+            if (getPotentialYield(tile, Stat.Food, unimproved = true) > 0f)
+                acc + getPotentialYield(tile, Stat.Production, unimproved = true).toInt()
+            else acc
         }
 
         // If terrible, try adding a hill to a dry flat tile
@@ -90,7 +88,7 @@ object StartNormalizer {
                         (it.revealedBy == null ||
                             ruleset.technologies[it.revealedBy]!!.era() in earlyEras)
             }.shuffled()
-            val candidateTiles = startTile.getTilesAtDistance(2).shuffled()
+            val candidateTiles = startTile.getTilesAtDistanceSnapshot(2).shuffled()
             for (resource in validResources) {
                 val resourcesAdded = MapRegionResources.tryAddingResourceToTiles(
                     tileData, resource, 1, candidateTiles, majorDeposit = false)
@@ -105,7 +103,7 @@ object StartNormalizer {
         tileData: TileDataMap
     ) {
         val candidateTiles =
-            startTile.getTilesInDistanceRange(1..2).shuffled() + startTile.getTilesAtDistance(3)
+            startTile.getTilesInDistanceRangeSnapshot(1..2).shuffled() + startTile.getTilesAtDistanceSnapshot(3)
                 .shuffled()
         for (resource in ruleset.tileResources.values.filter { it.hasUnique(UniqueType.StrategicBalanceResource) }) {
             if (MapRegionResources.tryAddingResourceToTiles(
@@ -138,19 +136,19 @@ object StartNormalizer {
     /** Check for very food-heavy starts that might still need some stone to help with production */
     private fun addProductionBonuses(startTile: Tile, ruleset: Ruleset) {
         val rng = GameContext(gameInfo = startTile.tileMap.gameInfo).stateBasedRandom("StartNormalizer.addProductionBonuses")
-        val grassTypePlots = startTile.getTilesInDistanceRange(1..2).filter {
+        val grassTypePlots = startTile.getTilesInDistanceRangeSnapshot(1..2).filter {
             it.isLand &&
                 getPotentialYield(it, Stat.Food, unimproved = true) >= 2f && // Food neutral natively
                 getPotentialYield(it, Stat.Production) == 0f // Production can't even be improved
         }.toMutableList()
-        val plainsTypePlots = startTile.getTilesInDistanceRange(1..2).filter {
+        val plainsTypePlotsCount = startTile.countTilesInDistanceRange(1..2) {
             it.isLand &&
                 getPotentialYield(it, Stat.Food) >= 2f && // Something that can be improved to food neutral
                 getPotentialYield(it, Stat.Production, unimproved = true) >= 1f // Some production natively
-        }.toList()
+        }
         var productionBonusesNeeded = when {
-            grassTypePlots.size >= 9 && plainsTypePlots.isEmpty() -> 2
-            grassTypePlots.size >= 6 && plainsTypePlots.size <= 4 -> 1
+            grassTypePlots.size >= 9 && plainsTypePlotsCount == 0 -> 2
+            grassTypePlots.size >= 6 && plainsTypePlotsCount <= 4 -> 1
             else -> 0
         }
         val productionBonuses =
@@ -183,14 +181,12 @@ object StartNormalizer {
         // 2F is worth 1, 3F is worth 2, 4F is worth 4, 5F is worth 6 and so on
         val innerFood =
             startTile.neighbors.sumOf { (getPotentialYield(it, Stat.Food).pow(2) / 4).toInt() }
-        val outerFood = startTile.getTilesAtDistance(2)
-            .sumOf { (getPotentialYield(it, Stat.Food).pow(2) / 4).toInt() }
+        val outerFood = startTile.accumulateForEachTileAtDistance(2, 0) { acc, tile -> acc + (getPotentialYield(tile, Stat.Food).pow(2) / 4).toInt() }
         val totalFood = innerFood + outerFood
         // we want at least some two-food tiles to keep growing
         val innerNativeTwoFood =
             startTile.neighbors.count { getPotentialYield(it, Stat.Food, unimproved = true) >= 2f }
-        val outerNativeTwoFood = startTile.getTilesAtDistance(2)
-            .count { getPotentialYield(it, Stat.Food, unimproved = true) >= 2f }
+        val outerNativeTwoFood = startTile.countTilesAtDistance(2) { getPotentialYield(it, Stat.Food, unimproved = true) >= 2f }
         val totalNativeTwoFood = innerNativeTwoFood + outerNativeTwoFood
 
         // Determine number of needed bonuses. Different weightings for minor and major civs.
@@ -227,7 +223,7 @@ object StartNormalizer {
                 ruleset.terrains.values.firstOrNull { it.type == TerrainType.Land && it.food >= 2 }?.name
             val candidateInnerSpots = startTile.neighbors
                 .filter { it.isLand && !it.isImpassible() && it.terrainFeatures.isEmpty() && it.resource == null }
-            val candidateOuterSpots = startTile.getTilesAtDistance(2)
+            val candidateOuterSpots = startTile.getTilesAtDistanceSnapshot(2)
                 .filter { it.isLand && !it.isImpassible() && it.terrainFeatures.isEmpty() && it.resource == null }
             val spot =
                 candidateInnerSpots.shuffled().firstOrNull() ?: candidateOuterSpots.shuffled()
@@ -262,7 +258,7 @@ object StartNormalizer {
         val rangeForBonuses = if (minorCiv) 2 else 3
 
         // Start with list of candidate plots sorted in ring order 1,2,3
-        val candidatePlots = startTile.getTilesInDistanceRange(1..rangeForBonuses)
+        val candidatePlots = startTile.getTilesInDistanceRangeSnapshot(1..rangeForBonuses)
             .filter { it.resource == null && oasisEquivalent !in it.terrainFeatureObjects }
             .shuffled().sortedBy { it.aerialDistanceTo(startTile) }.toMutableList()
 

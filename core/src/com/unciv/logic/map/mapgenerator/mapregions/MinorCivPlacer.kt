@@ -261,11 +261,11 @@ object MinorCivPlacer {
                 startBias.equalsPlaceholderText("Avoid []") -> {
                     val tileToAvoid = startBias.getPlaceholderParameters()[0]
                     preferred.filter { tile ->
-                        tile.getTilesInDistance(1).none { it.matchesTerrainFilter(tileToAvoid, null) }
+                        !tile.anyTileInDistance(1) { it.matchesTerrainFilter(tileToAvoid, null) }
                     }
                 }
                 else -> preferred.filter { tile ->
-                    tile.getTilesInDistance(1).any { it.matchesTerrainFilter(startBias, null) }
+                    tile.anyTileInDistance(1) { it.matchesTerrainFilter(startBias, null) }
                 }
             }
         }

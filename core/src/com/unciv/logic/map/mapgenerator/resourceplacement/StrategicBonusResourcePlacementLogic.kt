@@ -98,7 +98,7 @@ object StrategicBonusResourcePlacementLogic {
                 if (possibleResources.isEmpty()) continue
                 possibleResources.random(rng)
             }
-            val candidateTiles = tileMap[region.startPosition!!].getTilesAtDistance(3).shuffled()
+            val candidateTiles = tileMap[region.startPosition!!].getTilesAtDistanceSnapshot(3).shuffled()
             val amount = if (resourceUnique != null) 2 else 1 // Place an extra if the region type requests it
             if (MapRegionResources.tryAddingResourceToTiles(tileData, resource, amount, candidateTiles) == 0) {
                 // We couldn't place any, try adding a fish instead
@@ -177,8 +177,8 @@ object StrategicBonusResourcePlacementLogic {
         for (resource in strategicResources) {
             val extraNeeded = min(2, regions.size - totalPlaced[resource]!!)
             if (extraNeeded > 0) {
-                val tilesToAddTo = if (!isWaterOnlyResource(resource, ruleset)) landList.asSequence()
-                else tileMap.values.asSequence().filter { it.isWater }.shuffled()
+                val tilesToAddTo = if (!isWaterOnlyResource(resource, ruleset)) landList
+                else tileMap.values.filter { it.isWater }.shuffled()
 
                 MapRegionResources.tryAddingResourceToTiles(
                     tileData,
@@ -278,7 +278,7 @@ object StrategicBonusResourcePlacementLogic {
                         tileData,
                         resourceToPlace,
                         1,
-                        cityStateLocation.getTilesInDistanceRange(1..3)
+                        cityStateLocation.getTilesInDistanceRangeSnapshot(1..3)
                     )
             }
     }

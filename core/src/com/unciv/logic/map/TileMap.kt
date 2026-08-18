@@ -381,6 +381,24 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
             forEachTileAtDistance(origin, i, filter, op)
     }
 
+    /** @return The number of tiles in a hexagonal ring around [origin] with the distances in [range] that match [predicate].
+     *  Respects map edges and world wrap. */
+    @Readonly
+    fun countTilesInDistanceRange(origin: HexCoord, range: IntRange, predicate: (Tile)->Boolean): Int {
+        var count = 0
+        forEachTileInDistanceRange(origin, range) { if (predicate(it)) count++ }
+        return count
+    }
+
+    /** Folds [accumulate] over every tile in a hexagonal ring around [origin] with the distances in [range], starting from [initial].
+     *  Useful for e.g. summing up yields without a separate forEach+var step. */
+    @Readonly
+    fun <T> accumulateForEachTileInDistanceRange(origin: HexCoord, range: IntRange, initial: T, accumulate: (T, Tile) -> T): T {
+        var acc = initial
+        forEachTileInDistanceRange(origin, range) { acc = accumulate(acc, it) }
+        return acc
+    }
+
     /** @return The tile in a hexagonal ring around [origin] with the distances in [range] with the highest [selector] value, paired with that value,
      *  or null if there are no tiles in range. Respects map edges and world wrap. */
     fun <R : Comparable<R>> maxTileInDistanceRange(origin: HexCoord, range: IntRange, selector: (Tile)->R): Pair<Tile, R>? {
@@ -462,6 +480,15 @@ class TileMap(initialCapacity: Int = 10) : IsPartOfGameInfoSerialization {
         var count = 0
         forEachTileAtDistance(origin, distance) { if (predicate(it)) count++ }
         return count
+    }
+
+    /** Folds [accumulate] over every tile in a hexagonal ring 1 tile wide around [origin] with the [distance], starting from [initial].
+     *  Useful for e.g. summing up yields without a separate forEach+var step. */
+    @Readonly
+    fun <T> accumulateForEachTileAtDistance(origin: HexCoord, distance: Int, initial: T, accumulate: (T, Tile) -> T): T {
+        var acc = initial
+        forEachTileAtDistance(origin, distance) { acc = accumulate(acc, it) }
+        return acc
     }
 
     /** @return all tiles within [rectangle], respecting world edges and wrap.

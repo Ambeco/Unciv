@@ -85,7 +85,7 @@ object MapRegionResources {
     /** Attempts to place [amount] [resource] on [tiles], checking tiles in order. A [ratio] below 1 means skipping
      *  some tiles, ie ratio = 0.25 will put a resource on every 4th eligible tile. Can optionally respect impact flags,
      *  and places impact if [baseImpact] >= 0. Returns number of placed resources. */
-    fun tryAddingResourceToTiles(tileData: TileDataMap, resource: TileResource, amount: Int, tiles: Sequence<Tile>, ratio: Float = 1f,
+    fun tryAddingResourceToTiles(tileData: TileDataMap, resource: TileResource, amount: Int, tiles: Iterable<Tile>, ratio: Float = 1f,
                                  respectImpacts: Boolean = false, baseImpact: Int = -1, randomImpact: Int = 0,
                                  majorDeposit: Boolean = false): Int {
         if (amount <= 0) return 0

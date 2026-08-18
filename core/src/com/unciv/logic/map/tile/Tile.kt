@@ -653,10 +653,13 @@ class Tile : IsPartOfGameInfoSerialization {
     @Readonly fun <T> accumulateForEachTileInDistance(distance: Int, initial: T, accumulate: (T, Tile) -> T) = tileMap.accumulateForEachTileInDistance(position, distance, initial, accumulate)
     @Readonly fun forEachTileInDistanceRange(range: IntRange, op: (Tile)->Unit) = tileMap.forEachTileInDistanceRange(position, range, op)
     @Readonly fun forEachTileInDistanceRange(range: IntRange, filter: (Tile)->Boolean, op: (Tile)->Unit) = tileMap.forEachTileInDistanceRange(position, range, filter, op)
+    @Readonly fun countTilesInDistanceRange(range: IntRange, predicate: (Tile)->Boolean) = tileMap.countTilesInDistanceRange(position, range, predicate)
+    @Readonly fun <T> accumulateForEachTileInDistanceRange(range: IntRange, initial: T, accumulate: (T, Tile) -> T) = tileMap.accumulateForEachTileInDistanceRange(position, range, initial, accumulate)
     fun <R : Comparable<R>> maxTileInDistanceRange(range: IntRange, selector: (Tile)->R) = tileMap.maxTileInDistanceRange(position, range, selector)
     @Readonly fun forEachTileAtDistance(distance: Int, op: (Tile)->Unit) = tileMap.forEachTileAtDistance(position, distance, op)
     @Readonly fun forEachTileAtDistance(distance: Int, filter: (Tile)->Boolean, op: (Tile)->Unit) = tileMap.forEachTileAtDistance(position, distance, filter, op)
     @Readonly fun countTilesAtDistance(distance: Int, predicate: (Tile)->Boolean) = tileMap.countTilesAtDistance(position, distance, predicate)
+    @Readonly fun <T> accumulateForEachTileAtDistance(distance: Int, initial: T, accumulate: (T, Tile) -> T) = tileMap.accumulateForEachTileAtDistance(position, distance, initial, accumulate)
 
     @Readonly
     fun getDefensiveBonus(includeImprovementBonus: Boolean = true, unit: MapUnit? = null): Float {

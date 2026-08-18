@@ -221,7 +221,7 @@ object LuxuryResourcePlacementLogic {
             val targetNumber = (regions.size * tileMap.mapParameters.getMapResources().specialLuxuriesTargetFactor).toInt()
             val numberToPlace = max(2, targetNumber - placedSpecials[special.name]!!)
             MapRegionResources.tryAddingResourceToTiles(
-                tileData, special, numberToPlace, tileMap.values.asSequence().shuffled(), 1f,
+                tileData, special, numberToPlace, tileMap.values.shuffled(), 1f,
                 true, 6, 0
             )
         }
@@ -239,7 +239,7 @@ object LuxuryResourcePlacementLogic {
     ) {
         if (tileMap.mapParameters.mapResources == MapResourceSetting.sparse.label) return
         for (region in regions) {
-            val tilesToCheck = tileMap[region.startPosition!!].getTilesInDistanceRange(1..2)
+            val tilesToCheck = tileMap[region.startPosition!!].getTilesInDistanceRangeSnapshot(1..2)
             val candidateLuxuries = randomLuxuries.shuffled().toMutableList()
             if (!tileMap.mapParameters.getStrategicBalance())
                 candidateLuxuries += specialLuxuries.shuffled()
@@ -276,7 +276,7 @@ object LuxuryResourcePlacementLogic {
         targetRandomLuxuries /= 100
         targetRandomLuxuries += rng.nextInt(regions.size) // Add random number based on number of civs
         val minimumRandomLuxuries = tileData.size.toFloat().pow(0.2f).toInt() // Approximately
-        val worldTiles = tileMap.values.asSequence().shuffled()
+        val worldTiles = tileMap.values.shuffled()
         for ((index, luxury) in randomLuxuries.shuffled().withIndex()) {
             val targetForThisLuxury = if (randomLuxuries.size > 8) targetRandomLuxuries / 10
             else {
@@ -315,10 +315,10 @@ object LuxuryResourcePlacementLogic {
             fun Tile.isShoreOfContinent(continent: Int) =
                 isWater && neighbors.any { it.getContinent() == continent }
 
-            val candidates = if (isWaterOnlyResource(resource, ruleset))
+            val candidates: Iterable<Tile> = if (isWaterOnlyResource(resource, ruleset))
                 tileMap.getTilesInRectangle(region.rect)
-                    .filter { it.isShoreOfContinent(region.continentID) }
-            else region.tiles.asSequence()
+                    .filter { it.isShoreOfContinent(region.continentID) }.toList()
+            else region.tiles
             MapRegionResources.tryAddingResourceToTiles(
                 tileData,
                 resource,
@@ -344,7 +344,7 @@ object LuxuryResourcePlacementLogic {
         for (startLocation in tileMap.startingLocationsByNation
             .filterKeys { ruleset.nations[it]!!.isCityState }.map { it.value.first() }) {
             val region = regions.firstOrNull { startLocation in it.tiles }
-            val tilesToCheck = startLocation.getTilesInDistanceRange(1..2)
+            val tilesToCheck = startLocation.getTilesInDistanceRangeSnapshot(1..2)
             // 75% probability that we first attempt to place a "city state" luxury, then a random or regional one
             // 25% probability of going the other way around
             val globalLuxuries =
@@ -385,7 +385,7 @@ object LuxuryResourcePlacementLogic {
 
             val luxuryToPlace = ruleset.tileResources[region.luxury] ?: continue
             // First check 2 inner rings
-            val firstPass = tileMap[region.startPosition!!].getTilesInDistanceRange(1..2)
+            val firstPass = tileMap[region.startPosition!!].getTilesInDistanceRangeSnapshot(1..2)
                 .shuffled().sortedBy { it.getTileFertility(false) } // Check bad tiles first
             targetLuxuries -= MapRegionResources.tryAddingResourceToTiles(
                 tileData,
@@ -396,7 +396,7 @@ object LuxuryResourcePlacementLogic {
             ) // Skip every 2nd tile on first pass
 
             if (targetLuxuries > 0) {
-                val secondPass = firstPass + tileMap[region.startPosition!!].getTilesAtDistance(3)
+                val secondPass = firstPass + tileMap[region.startPosition!!].getTilesAtDistanceSnapshot(3)
                     .shuffled().sortedBy { it.getTileFertility(false) } // Check bad tiles first
                 targetLuxuries -= MapRegionResources.tryAddingResourceToTiles(
                     tileData,
