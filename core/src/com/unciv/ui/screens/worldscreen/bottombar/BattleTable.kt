@@ -262,7 +262,7 @@ class BattleTable(val worldScreen: WorldScreen) : Table() {
 
                 var maxExtraDamageToDefender = 0
                 var minExtraDamageToDefender = 0
-                for (unique in attacker.unit.getMatchingUniques(UniqueType.ExtraRangedAttack)) {
+                attacker.unit.forEachMatchingUnique(UniqueType.ExtraRangedAttack) { unique ->
                     val baseRangedStrengthForExtraAttack = (attacker.unit.baseUnit.strength *
                         unique.params[0].toFloat() / 100).toInt()
                     val fakeAttacker = Battle.FakeUnitForExtraRangedAttack(attacker, baseRangedStrengthForExtraAttack)
@@ -381,12 +381,13 @@ class BattleTable(val worldScreen: WorldScreen) : Table() {
         val blastRadius = attacker.unit.getNukeBlastRadius()
 
         val defenderNameWrapper = Table()
-        for (tile in targetTile.getTilesInDistance(blastRadius)) {
-            val defender = tryGetDefenderAtTile(tile, true) ?: continue
-
-            val defenderLabel = defender.getName().toLabel(hideIcons = true)
-            defenderNameWrapper.add(getIcon(defender)).padRight(5f)
-            defenderNameWrapper.add(defenderLabel).row()
+        targetTile.forEachTileInDistance(blastRadius) { tile ->
+            val defender = tryGetDefenderAtTile(tile, true)
+            if (defender != null) {
+                val defenderLabel = defender.getName().toLabel(hideIcons = true)
+                defenderNameWrapper.add(getIcon(defender)).padRight(5f)
+                defenderNameWrapper.add(defenderLabel).row()
+            }
         }
         add(defenderNameWrapper).row()
 
@@ -463,7 +464,7 @@ class BattleTable(val worldScreen: WorldScreen) : Table() {
 
         val attackButton = "Air Sweep".toTextButton().apply { color = Color.RED }
 
-        val canReach = attacker.unit.currentTile.getTilesInDistance(attacker.unit.getRange()).contains(targetTile)
+        val canReach = attacker.unit.currentTile.anyTileInDistance(attacker.unit.getRange()) { it == targetTile }
 
         if (!worldScreen.isPlayersTurn || !attacker.canAttack() || !canReach || !canAttack) {
             attackButton.disable()

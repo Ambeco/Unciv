@@ -485,6 +485,10 @@ class WorldScreen(
 
         displayTutorial(TutorialTrigger.Introduction)
 
+        // Deliberately uses the deprecated getTilesInDistance: part of a lazy, short-circuiting Sequence chain
+        // ending in .any{}; forEachTileInDistance's eager callback would break that laziness.
+        // TODO: followup commit will un-deprecate and rename to getTilesInDistanceSnapshot.
+        @Suppress("DEPRECATION")
         displayTutorial(TutorialTrigger.EnemyCityNeedsConqueringWithMeleeUnit) {
             viewingCiv.diplomacy.values.asSequence()
                     .filter { it.diplomaticStatus == DiplomaticStatus.War }

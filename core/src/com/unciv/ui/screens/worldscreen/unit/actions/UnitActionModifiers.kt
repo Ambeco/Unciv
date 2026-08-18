@@ -19,6 +19,10 @@ object UnitActionModifiers {
         return usagesLeft == null || usagesLeft > 0
     }
 
+    // Deliberately uses the deprecated getMatchingUniques: this is a widely-used public API returning a lazy
+    // Sequence<Unique>, consumed in various ways (firstOrNull/none/further filtering) by many call sites across
+    // the codebase. TODO: followup commit will un-deprecate and rename to getMatchingUniquesSnapshot.
+    @Suppress("DEPRECATION")
     @Readonly
     fun getUsableUnitActionUniques(unit: MapUnit, actionUniqueType: UniqueType) =
         unit.getMatchingUniques(actionUniqueType)
@@ -151,10 +155,12 @@ object UnitActionModifiers {
 
     @Readonly
     private fun getMaxUsages(unit: MapUnit, actionUnique: Unique): Int? {
-        val extraTimes = unit.getMatchingUniques(actionUnique.type!!)
-            .filter { it.text.removeConditionals() == actionUnique.text.removeConditionals() }
-            .flatMap { unique -> unique.getModifiers(UniqueType.UnitActionExtraLimitedTimes) }
-            .sumOf { it.params[0].toInt() }
+        var extraTimes = 0
+        unit.forEachMatchingUnique(actionUnique.type!!) { unique ->
+            if (unique.text.removeConditionals() == actionUnique.text.removeConditionals())
+                for (modifier in unique.getModifiers(UniqueType.UnitActionExtraLimitedTimes))
+                    extraTimes += modifier.params[0].toInt()
+        }
 
         val times = actionUnique.getModifiers(UniqueType.UnitActionLimitedTimes)
             .maxOfOrNull { it.params[0].toInt() }

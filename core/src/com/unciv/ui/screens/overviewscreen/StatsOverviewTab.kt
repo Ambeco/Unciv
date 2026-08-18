@@ -134,15 +134,18 @@ class StatsOverviewTab(
 
         init {
             defaults().pad(5f)
-            uniques = sequenceOf(
+            val collected = ArrayList<Unique>()
+            for (conditionalType in listOf(
                     UniqueType.ConditionalWhenAboveAmountStatResource,
                     UniqueType.ConditionalWhenBetweenStatResource,
                     UniqueType.ConditionalWhenBelowAmountStatResource,
-                ).flatMap { conditionalType ->
-                    viewingPlayer.getMatchingUniques(conditionalType)
-                        .filter { it.params.last() == "Happiness" }
-                        .sortedBy { it.type } // otherwise order might change as a HashMap is involved
-                }.filterNot { it.isHiddenToUsers() }
+                )) {
+                viewingPlayer.forEachMatchingUnique(conditionalType) {
+                    if (it.params.last() == "Happiness") collected.add(it)
+                }
+            }
+            uniques = collected.sortedBy { it.type } // otherwise order might change as a HashMap is involved
+                .filterNot { it.isHiddenToUsers() }
                 .toSet()
             show = uniques.isNotEmpty()
         }

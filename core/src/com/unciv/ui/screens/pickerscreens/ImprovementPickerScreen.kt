@@ -13,6 +13,7 @@ import com.unciv.logic.map.tile.ImprovementBuildingProblem
 import com.unciv.logic.map.tile.Tile
 import com.unciv.models.ruleset.tile.TileImprovement
 import com.unciv.models.ruleset.unique.GameContext
+import com.unciv.models.ruleset.unique.Unique
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.stats.Stat
 import com.unciv.models.stats.Stats
@@ -184,8 +185,7 @@ class ImprovementPickerScreen(
             && !improvement.isRoad()
             && stats.max() > 0f
             && !improvement.name.startsWith(Constants.remove)
-            && !tile.getTilesInDistance(currentPlayerCiv.modConstants.cityWorkRange)
-                .any { it.isCityCenter() && it.getCity()!!.civ == currentPlayerCiv }
+            && !tile.anyTileInDistance(currentPlayerCiv.modConstants.cityWorkRange) { it.isCityCenter() && it.getCity()!!.civ == currentPlayerCiv }
         )
             labelText += "\n" + "Not in city work range".tr()
 
@@ -237,22 +237,23 @@ class ImprovementPickerScreen(
     // Not centralized in [TileStatFunctions] because the actual upkeep calculation can optimize some things and rounding errors might accumulate differently
     private fun getMaintenance(improvement: TileImprovement): Stats {
         val maintenance = Stats()
-        if (currentPlayerCiv.getMatchingUniques(UniqueType.NoImprovementMaintenanceInSpecificTiles)
-                .any { tile.matchesFilter(it.params[0], currentPlayerCiv) }
+        if (currentPlayerCiv.firstMatchingUniqueOrNull(UniqueType.NoImprovementMaintenanceInSpecificTiles) {
+                tile.matchesFilter(it.params[0], currentPlayerCiv)
+            } != null
         ) return maintenance
 
         val context = GameContext(currentPlayerCiv, tile = tile)
-        val maintenanceUniques = improvement.getMatchingUniques(UniqueType.ImprovementAllMaintenance, context) +
-            // ImprovementMaintenance only applies inside city territory; ImprovementAllMaintenance applies everywhere.
-            (if (tile.getOwner() == currentPlayerCiv) improvement.getMatchingUniques(UniqueType.ImprovementMaintenance, context) else emptySequence())
-        for (maintenanceUnique in maintenanceUniques) {
+        fun applyMaintenanceUnique(maintenanceUnique: Unique) {
             val amount = maintenanceUnique.params[0].toFloat()
-            val statName = Stat.safeValueOf(maintenanceUnique.params[1]) ?: continue
+            val statName = Stat.safeValueOf(maintenanceUnique.params[1]) ?: return
             maintenance.add(statName, -amount)
         }
+        improvement.forEachMatchingUnique(UniqueType.ImprovementAllMaintenance, context, ::applyMaintenanceUnique)
+        // ImprovementMaintenance only applies inside city territory; ImprovementAllMaintenance applies everywhere.
+        if (tile.getOwner() == currentPlayerCiv)
+            improvement.forEachMatchingUnique(UniqueType.ImprovementMaintenance, context, ::applyMaintenanceUnique)
 
-        for (unique in currentPlayerCiv.getMatchingUniques(UniqueType.RoadMaintenance))
-            maintenance.timesInPlace(unique.params[0].toPercent())
+        currentPlayerCiv.forEachMatchingUnique(UniqueType.RoadMaintenance) { maintenance.timesInPlace(it.params[0].toPercent()) }
         return maintenance
     }
 

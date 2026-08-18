@@ -250,7 +250,9 @@ class MapEditorEditTab(
                 bfs.stepToEnd()
                 bfs.getReachedTiles().toSet()
             } else {
-                tile.getTilesInDistance(brushSize - 1).toSet()
+                val result = HashSet<Tile>()
+                tile.forEachTileInDistance(brushSize - 1) { result.add(it) }
+                result
             }
         
         for (tileToPaint in tiles) {
