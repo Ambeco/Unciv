@@ -424,14 +424,11 @@ class Spy private constructor() : IsPartOfGameInfoSerialization {
         val maxRank = civInfo.gameInfo.ruleset.modOptions.constants.maxSpyRank
         var effective = rank
         val city = getCityOrNull() ?: return effective.coerceIn(1, maxRank)
-        effective += city.getMatchingUniques(
-            UniqueType.CounterIntelligenceSpyRankBonus,
-            city.state,
-            includeCivUniques = true
-        ).filter {
-            city.matchesFilter(it.params[0], viewingCiv = civInfo) &&
-                it.params[2].equals(action.displayString, ignoreCase = true)
-        }.sumOf { it.params[1].toInt() }
+        city.forEachMatchingUnique(UniqueType.CounterIntelligenceSpyRankBonus, city.state, includeCivUniques = true) { unique ->
+            if (city.matchesFilter(unique.params[0], viewingCiv = civInfo) &&
+                unique.params[2].equals(action.displayString, ignoreCase = true))
+                effective += unique.params[1].toInt()
+        }
         return effective.coerceIn(1, maxRank)
     }
 
@@ -445,29 +442,27 @@ class Spy private constructor() : IsPartOfGameInfoSerialization {
      */
     @Readonly
     fun getEfficiencyModifier(): Double {
-        val friendlyUniques: Sequence<Unique>
-        val enemyUniques: Sequence<Unique>
+        var friendlyBonus = 0
+        var enemyBonus = 0
         val city = getCityOrNull()
         when {
             city == null -> {
                 // Spy is in hideout - effectiveness won't matter
-                friendlyUniques = civInfo.getMatchingUniques(UniqueType.SpyEffectiveness)
-                enemyUniques = emptySequence()
+                civInfo.forEachMatchingUnique(UniqueType.SpyEffectiveness) { friendlyBonus += it.params[0].toInt() }
             }
             city.civ == civInfo -> {
                 // Spy is in our own city
-                friendlyUniques = city.getMatchingUniques(UniqueType.SpyEffectiveness, city.state, includeCivUniques = true)
-                enemyUniques = emptySequence()
+                city.forEachMatchingUnique(UniqueType.SpyEffectiveness, city.state, includeCivUniques = true) { friendlyBonus += it.params[0].toInt() }
             }
             else -> {
                 // Spy is active in a foreign city
-                friendlyUniques = civInfo.getMatchingUniques(UniqueType.SpyEffectiveness)
-                enemyUniques = city.getMatchingUniques(UniqueType.EnemySpyEffectiveness, city.state, includeCivUniques = true)
+                civInfo.forEachMatchingUnique(UniqueType.SpyEffectiveness) { friendlyBonus += it.params[0].toInt() }
+                city.forEachMatchingUnique(UniqueType.EnemySpyEffectiveness, city.state, includeCivUniques = true) { enemyBonus += it.params[0].toInt() }
             }
         }
         var totalEfficiency = 1.0
-        totalEfficiency *= (100.0 + friendlyUniques.sumOf { it.params[0].toInt() }) / 100
-        totalEfficiency *= (100.0 + enemyUniques.sumOf { it.params[0].toInt() }) / 100
+        totalEfficiency *= (100.0 + friendlyBonus) / 100
+        totalEfficiency *= (100.0 + enemyBonus) / 100
         return totalEfficiency.coerceAtLeast(0.0)
     }
 

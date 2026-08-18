@@ -971,6 +971,10 @@ object UniqueTriggerActivation {
                 val isAll = amount in Constants.all
                 val positions = ArrayList<HexCoord>()
 
+                // Deliberately uses the deprecated getTilesInDistance: explorableTiles is reassigned (shuffled/take)
+                // and reused inside the returned deferred lambda below, so it needs a reusable Sequence/snapshot.
+                // TODO: followup commit will un-deprecate and rename to getTilesInDistanceSnapshot.
+                @Suppress("DEPRECATION")
                 var explorableTiles = tile.getTilesInDistance(radius)
                     .filter { !it.isExplored(civInfo) && it.matchesFilter(filter) }
 
@@ -1008,16 +1012,13 @@ object UniqueTriggerActivation {
                 val radius = unique.params[1].toInt()
                 val chance = unique.params[2].toFloat() / 100f
 
-                val revealCenter = tile.getTilesAtDistance(distance)
-                    .filter { !it.isExplored(civInfo) }
-                    .toList()
-                    .randomOrNull(tileBasedRandom)
+                val unexploredTilesAtDistance = ArrayList<Tile>()
+                tile.forEachTileAtDistance(distance) { if (!it.isExplored(civInfo)) unexploredTilesAtDistance.add(it) }
+                val revealCenter = unexploredTilesAtDistance.randomOrNull(tileBasedRandom)
                     ?: return null
 
                 return {
-                    revealCenter.getTilesInDistance(radius)
-                        .filter { tileBasedRandom.nextFloat() < chance }
-                        .forEach { it.setExplored(civInfo, true) }
+                    revealCenter.forEachTileInDistance(radius, { tileBasedRandom.nextFloat() < chance }) { it.setExplored(civInfo, true) }
                     civInfo.cache.updateViewableTiles()
                     if (notification != null)
                         civInfo.addNotification(
@@ -1369,10 +1370,11 @@ object UniqueTriggerActivation {
                 val tileFilter = unique.params[0]
                 val radius = unique.params[1].toInt()
                 if (radius < 0) return null
-                val tilesToTakeOver = tile.getTilesInDistance(radius)
-                    .filter {
-                        !it.isCityCenter() && it.matchesFilter(tileFilter) && it.getOwner() != civInfo
-                    }.toList()
+                val tilesToTakeOver = ArrayList<Tile>()
+                tile.forEachTileInDistance(radius) {
+                    if (!it.isCityCenter() && it.matchesFilter(tileFilter) && it.getOwner() != civInfo)
+                        tilesToTakeOver.add(it)
+                }
                 if (tilesToTakeOver.none()) return null
 
                 /** Lower is better */

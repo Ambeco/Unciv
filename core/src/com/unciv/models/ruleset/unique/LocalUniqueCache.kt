@@ -12,6 +12,11 @@ class LocalUniqueCache(val cache: Boolean = true) {
     // This stores sequences *that iterate directly on a list* - that is, pre-resolved
     @Cache private val keyToUniques = HashMap<String, Sequence<Unique>>()
 
+    // Deliberately uses the deprecated getLocalMatchingUniques/getMatchingUniques: this class exists specifically
+    // to cache a materialized snapshot of a civ/city's uniques for reuse across many calls with different
+    // conditionals, so it needs the raw un-conditional-filtered Sequence, not a one-off forEach iteration.
+    // TODO: followup commit will un-deprecate and rename to getMatchingUniquesSnapshot.
+    @Suppress("DEPRECATION")
     @Readonly
     fun forCityGetMatchingUniques(
         city: City,
@@ -33,6 +38,8 @@ class LocalUniqueCache(val cache: Boolean = true) {
         return citySpecificUniques + civUniques
     }
 
+    // See forCityGetMatchingUniques above for why this deliberately keeps using the deprecated getMatchingUniques.
+    @Suppress("DEPRECATION")
     @Readonly
     fun forCivGetMatchingUniques(
         civ: Civilization,

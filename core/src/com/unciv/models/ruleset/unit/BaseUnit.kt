@@ -213,6 +213,10 @@ class BaseUnit : RulesetObject(), INonPerpetualConstruction {
     override fun getRejectionReasons(cityConstructions: CityConstructions): Sequence<RejectionReason> =
         getRejectionReasons(cityConstructions.city.civ, cityConstructions.city)
 
+    // Deliberately uses the deprecated getMatchingUniques: this is a sequence{} builder using yield/yieldAll, and
+    // forEachMatchingUnique's callback isn't a suspend function so it can't call yield.
+    // TODO: followup commit will un-deprecate and rename to getMatchingUniquesSnapshot.
+    @Suppress("DEPRECATION")
     @Readonly
     fun getRejectionReasons(
         civ: Civilization,
@@ -383,23 +387,24 @@ class BaseUnit : RulesetObject(), INonPerpetualConstruction {
         @Suppress("LocalVariableName")
         var XP = 0
 
-        for (unique in cityConstructions.city.getMatchingUniques(UniqueType.UnitStartingExperience)) {
+        cityConstructions.city.forEachMatchingUnique(UniqueType.UnitStartingExperience) { unique ->
             if (unit.matchesFilter(unique.params[0]) && cityConstructions.city.matchesFilter(unique.params[2]))
                 XP += unique.params[1].toInt()
         }
         unit.promotions.XP = XP
 
-        for (unique in cityConstructions.city.getMatchingUniques(UniqueType.UnitStartingPromotions)
-            .filter { cityConstructions.city.matchesFilter(it.params[1]) }) {
-            val filter = unique.params[0]
-            val promotion = unique.params.last()
+        cityConstructions.city.forEachMatchingUnique(UniqueType.UnitStartingPromotions) { unique ->
+            if (cityConstructions.city.matchesFilter(unique.params[1])) {
+                val filter = unique.params[0]
+                val promotion = unique.params.last()
 
-            val isRelevantPromotion = filter == "relevant"
-                    && civInfo.gameInfo.ruleset.unitPromotions.values
-                .any { it.name == promotion && unit.type.name in it.unitTypes }
-            
-            if (isRelevantPromotion || unit.matchesFilter(filter)) {
-                unit.promotions.addPromotion(promotion, isFree = true)
+                val isRelevantPromotion = filter == "relevant"
+                        && civInfo.gameInfo.ruleset.unitPromotions.values
+                    .any { it.name == promotion && unit.type.name in it.unitTypes }
+
+                if (isRelevantPromotion || unit.matchesFilter(filter)) {
+                    unit.promotions.addPromotion(promotion, isFree = true)
+                }
             }
         }
     }

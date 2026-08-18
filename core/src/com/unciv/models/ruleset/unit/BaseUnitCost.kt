@@ -14,14 +14,17 @@ class BaseUnitCost(val baseUnit: BaseUnit) {
         var productionCost = baseUnit.cost.toFloat()
 
         val stateForConditionals = city?.state ?: civInfo.state
-        for (unique in baseUnit.getMatchingUniques(UniqueType.CostIncreasesPerCity, stateForConditionals))
-            productionCost += civInfo.cities.size * unique.params[0].toInt()
+        baseUnit.forEachMatchingUnique(UniqueType.CostIncreasesPerCity, stateForConditionals) {
+            productionCost += civInfo.cities.size * it.params[0].toInt()
+        }
 
-        for (unique in baseUnit.getMatchingUniques(UniqueType.CostIncreasesWhenBuilt, stateForConditionals))
-            productionCost += civInfo.civConstructions.builtItemsWithIncreasingCost[baseUnit.name] * unique.params[0].toInt()
+        baseUnit.forEachMatchingUnique(UniqueType.CostIncreasesWhenBuilt, stateForConditionals) {
+            productionCost += civInfo.civConstructions.builtItemsWithIncreasingCost[baseUnit.name] * it.params[0].toInt()
+        }
 
-        for (unique in baseUnit.getMatchingUniques(UniqueType.CostPercentageChange, stateForConditionals))
-            productionCost *= unique.params[0].toPercent()
+        baseUnit.forEachMatchingUnique(UniqueType.CostPercentageChange, stateForConditionals) {
+            productionCost *= it.params[0].toPercent()
+        }
 
         productionCost *= if (civInfo.isCityState)
             1.5f
@@ -40,34 +43,32 @@ class BaseUnitCost(val baseUnit: BaseUnit) {
     fun canBePurchasedWithStat(city: City, stat: Stat): Boolean {
         val conditionalState = city.state
 
-        if (city.getMatchingUniques(UniqueType.BuyUnitsIncreasingCost, conditionalState)
-                    .any {
+        if (city.firstMatchingUniqueOrNull(UniqueType.BuyUnitsIncreasingCost, conditionalState) {
                         it.params[2] == stat.name
                                 && baseUnit.matchesFilter(it.params[0], conditionalState)
                                 && city.matchesFilter(it.params[3])
-                    }
+                    } != null
         ) return true
 
-        if (city.getMatchingUniques(UniqueType.BuyUnitsByProductionCost, conditionalState)
-                    .any { it.params[1] == stat.name && baseUnit.matchesFilter(it.params[0], conditionalState) }
+        if (city.firstMatchingUniqueOrNull(UniqueType.BuyUnitsByProductionCost, conditionalState) {
+                        it.params[1] == stat.name && baseUnit.matchesFilter(it.params[0], conditionalState)
+                    } != null
         )
             return true
 
-        if (city.getMatchingUniques(UniqueType.BuyUnitsWithStat, conditionalState)
-                    .any {
+        if (city.firstMatchingUniqueOrNull(UniqueType.BuyUnitsWithStat, conditionalState) {
                         it.params[1] == stat.name
                                 && baseUnit.matchesFilter(it.params[0], conditionalState)
                                 && city.matchesFilter(it.params[2])
-                    }
+                    } != null
         )
             return true
 
-        if (city.getMatchingUniques(UniqueType.BuyUnitsForAmountStat, conditionalState)
-                    .any {
+        if (city.firstMatchingUniqueOrNull(UniqueType.BuyUnitsForAmountStat, conditionalState) {
                         it.params[2] == stat.name
                                 && baseUnit.matchesFilter(it.params[0], conditionalState)
                                 && city.matchesFilter(it.params[3])
-                    }
+                    } != null
         )
             return true
 
@@ -79,18 +80,22 @@ class BaseUnitCost(val baseUnit: BaseUnit) {
         var cost = baseUnit.getBaseBuyCost(city, stat)?.toDouble() ?: return null
         val conditionalState = city.state
 
-        for (unique in city.getMatchingUniques(UniqueType.BuyUnitsDiscount)) {
+        city.forEachMatchingUnique(UniqueType.BuyUnitsDiscount) { unique ->
             if (stat.name == unique.params[0] && baseUnit.matchesFilter(unique.params[1], conditionalState))
                 cost *= unique.params[2].toPercent()
         }
-        for (unique in city.getMatchingUniques(UniqueType.BuyItemsDiscount))
+        city.forEachMatchingUnique(UniqueType.BuyItemsDiscount) { unique ->
             if (stat.name == unique.params[0])
                 cost *= unique.params[1].toPercent()
+        }
 
         return (cost / 10f).toInt() * 10
     }
 
 
+    // Deliberately uses the deprecated getMatchingUniques: builds a lazy Sequence via yieldAll/yield, which has no
+    // forEachMatchingUnique equivalent. TODO: followup commit will un-deprecate and rename to getMatchingUniquesSnapshot.
+    @Suppress("DEPRECATION")
     @Readonly
     fun getBaseBuyCosts(city: City, stat: Stat): Sequence<Float> {
         val conditionalState = city.state

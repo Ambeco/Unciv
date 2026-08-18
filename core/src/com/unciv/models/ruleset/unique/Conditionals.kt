@@ -291,7 +291,7 @@ object Conditionals {
             UniqueType.ConditionalFightingInTiles ->
                 state.attackedTile?.matchesFilter(conditional.params[0], state.relevantCiv) == true
             UniqueType.ConditionalNearTiles ->
-                state.relevantTile != null && state.relevantTile!!.getTilesInDistance(conditional.params[0].toInt()).any {
+                state.relevantTile != null && state.relevantTile!!.anyTileInDistance(conditional.params[0].toInt()) {
                     it.matchesFilter(conditional.params[1], state.relevantCiv)
                 }
 

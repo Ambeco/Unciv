@@ -161,30 +161,32 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
 
         val conditionalState = city.state
         return (
-            city.getMatchingUniques(UniqueType.BuyBuildingsIncreasingCost, conditionalState)
-                .any {
+            city.firstMatchingUniqueOrNull(UniqueType.BuyBuildingsIncreasingCost, conditionalState) {
                     it.params[2] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
                     && city.matchesFilter(it.params[3])
-                }
-            || city.getMatchingUniques(UniqueType.BuyBuildingsByProductionCost, conditionalState)
-                .any { it.params[1] == stat.name && matchesFilter(it.params[0], conditionalState) }
-            || city.getMatchingUniques(UniqueType.BuyBuildingsWithStat, conditionalState)
-                .any {
+                } != null
+            || city.firstMatchingUniqueOrNull(UniqueType.BuyBuildingsByProductionCost, conditionalState) {
+                    it.params[1] == stat.name && matchesFilter(it.params[0], conditionalState)
+                } != null
+            || city.firstMatchingUniqueOrNull(UniqueType.BuyBuildingsWithStat, conditionalState) {
                     it.params[1] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
                     && city.matchesFilter(it.params[2])
-                }
-            || city.getMatchingUniques(UniqueType.BuyBuildingsForAmountStat, conditionalState)
-                .any {
+                } != null
+            || city.firstMatchingUniqueOrNull(UniqueType.BuyBuildingsForAmountStat, conditionalState) {
                     it.params[2] == stat.name
                     && matchesFilter(it.params[0], conditionalState)
                     && city.matchesFilter(it.params[3])
-                }
+                } != null
             || super.canBePurchasedWithStat(city, stat)
         )
     }
 
+    // Deliberately uses the deprecated getMatchingUniques: builds a lazy Sequence via yieldAll/yield for minOrNull
+    // below, which has no forEachMatchingUnique equivalent. TODO: followup commit will un-deprecate and rename
+    // to getMatchingUniquesSnapshot.
+    @Suppress("DEPRECATION")
     @Readonly
     private fun getSpecificBuyCost(city: City, stat: Stat): Float? {
         val conditionalState = city.state
@@ -236,11 +238,12 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
         var cost = getBaseBuyCost(city, stat)?.toDouble() ?: return null
         val conditionalState = city.state
 
-        for (unique in city.getMatchingUniques(UniqueType.BuyItemsDiscount))
+        city.forEachMatchingUnique(UniqueType.BuyItemsDiscount) { unique ->
             if (stat.name == unique.params[0])
                 cost *= unique.params[1].toPercent()
+        }
 
-        for (unique in city.getMatchingUniques(UniqueType.BuyBuildingsDiscount)) {
+        city.forEachMatchingUnique(UniqueType.BuyBuildingsDiscount) { unique ->
             if (stat.name == unique.params[0] && matchesFilter(unique.params[1], conditionalState))
                 cost *= unique.params[2].toPercent()
         }
@@ -251,10 +254,10 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
     override fun shouldBeDisplayed(cityConstructions: CityConstructions): Boolean {
         if (cityConstructions.isBeingConstructedOrEnqueued(name))
             return false
-        for (unique in getMatchingUniques(UniqueType.MaxNumberBuildable)) {
-            if (cityConstructions.city.civ.civConstructions.countConstructedObjects(this) >= unique.params[0].toInt())
-                return false
-        }
+        if (firstMatchingUniqueOrNull(UniqueType.MaxNumberBuildable, GameContext.EmptyState) {
+                cityConstructions.city.civ.civConstructions.countConstructedObjects(this) >= it.params[0].toInt()
+            } != null)
+            return false
 
         val rejectionReasons = getRejectionReasons(cityConstructions)
 
@@ -271,6 +274,10 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
                 && rejectionReasons.all { it.type == RejectionReasonType.Unbuildable }
     }
 
+    // Deliberately uses the deprecated getMatchingUniques: this is a sequence{} builder using yield, and
+    // forEachMatchingUnique's callback isn't a suspend function so it can't call yield.
+    // TODO: followup commit will un-deprecate and rename to getMatchingUniquesSnapshot.
+    @Suppress("DEPRECATION")
     override fun getRejectionReasons(cityConstructions: CityConstructions): Sequence<RejectionReason> = sequence {
         val city = cityConstructions.city
         val cityCenter = city.getCenterTile()
@@ -327,13 +334,11 @@ class Building : RulesetStatsObject(), INonPerpetualConstruction {
                         yield(RejectionReasonType.MustBeNextToTile.toInstance(unique.text))
 
                 UniqueType.MustNotBeNextTo ->
-                    if (cityCenter.getTilesInDistance(1).any { it.matchesFilter(unique.params[0], civ) })
+                    if (cityCenter.anyTileInDistance(1) { it.matchesFilter(unique.params[0], civ) })
                         yield(RejectionReasonType.MustNotBeNextToTile.toInstance(unique.text))
 
                 UniqueType.MustHaveOwnedWithinTiles ->
-                    if (cityCenter.getTilesInDistance(unique.params[1].toInt())
-                        .none { it.matchesFilter(unique.params[0], civ) && it.getOwner() == civ }
-                    )
+                    if (!cityCenter.anyTileInDistance(unique.params[1].toInt()) { it.matchesFilter(unique.params[0], civ) && it.getOwner() == civ })
                         yield(RejectionReasonType.MustOwnTile.toInstance(unique.text))
 
                 UniqueType.ObsoleteWith ->
