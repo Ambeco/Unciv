@@ -181,7 +181,12 @@ class HexLayoutManagerTest {
         val centerRaw = com.unciv.logic.map.HexMath.hex2WorldCoords(allTiles[centerIdx].position)
             .scl(0.8f * TileGroupMap.groupSize)
 
+        // Left/bottom get an extra tile's margin beyond the plain one every other edge gets - see
+        // onLayoutChildren's own doc for why (a tile's hex image bleeds further past its own anchor
+        // on those two sides than a single groupSize of padding covers).
         val margin = TileGroupMap.groupSize
+        val leftMargin = margin * 2
+        val bottomMargin = margin * 2
         for (position in rv.recycler.getPositions()) {
             val raw = com.unciv.logic.map.HexMath.hex2WorldCoords(allTiles[position].position)
                 .scl(0.8f * TileGroupMap.groupSize)
@@ -189,8 +194,9 @@ class HexLayoutManagerTest {
             val screenY = centerView.y + (raw.y - centerRaw.y)
             assertTrue(
                 "tile at position $position landed at ($screenX, $screenY), outside the viewport " +
-                    "rectangle (0..${rv.width}, 0..${rv.height}) plus a $margin margin",
-                screenX >= -margin && screenX <= rv.width + margin && screenY >= -margin && screenY <= rv.height + margin
+                    "rectangle (0..${rv.width}, 0..${rv.height}) plus a $leftMargin/$margin left/right and " +
+                    "$margin/$bottomMargin top/bottom margin",
+                screenX >= -leftMargin && screenX <= rv.width + margin && screenY >= -margin && screenY <= rv.height + bottomMargin
             )
         }
     }

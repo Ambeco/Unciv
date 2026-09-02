@@ -278,10 +278,17 @@ class HexLayoutManager(
             // before actually being bound, so those corners never cost a real WorldTileGroup/11
             // TileLayers. Skipping this filter was a real bug: a wide-aspect-ratio viewport bound
             // several times as many tiles as were ever visible on screen.
-            val marginedLeft = scrollOffsetX - TileGroupMap.groupSize
+            //
+            // The left/bottom edges each get one extra tile's worth of margin beyond that: a tile's
+            // hex image isn't centered on its own tileX/tileY anchor (see TileGroup.hexagonImagePosition's
+            // own doc) - it bleeds further past its anchor on those two sides than a single groupSize
+            // of padding covers, which showed up as missing hex corners right at the left/bottom screen
+            // edges specifically while panning in those directions (never top/right, which stayed
+            // comfortably over-covered by the plain single-groupSize margin).
+            val marginedLeft = scrollOffsetX - TileGroupMap.groupSize * 2
             val marginedRight = scrollOffsetX + rv.width + TileGroupMap.groupSize
             val marginedTop = scrollOffsetY - TileGroupMap.groupSize
-            val marginedBottom = scrollOffsetY + rv.height + TileGroupMap.groupSize
+            val marginedBottom = scrollOffsetY + rv.height + TileGroupMap.groupSize * 2
             val viewportCenterX = scrollOffsetX + rv.width / 2f
 
             val needed = HashSet<Tile>()
@@ -348,8 +355,12 @@ class HexLayoutManager(
          *  hex maps avoid gaps between tiles at all. So covering a viewport rectangle needs tiles
          *  slightly beyond the strict distance-to-center radius too, or the *edges* of those
          *  outermost tiles' oversized images go unrendered - most noticeable as missing hex corners
-         *  right at the edge of the screen while panning. */
-        private const val EDGE_MARGIN = 1
+         *  right at the edge of the screen while panning. Sized to comfortably reach
+         *  [onLayoutChildren]'s own widest per-edge rectangle margin (the left/bottom edges get an
+         *  extra tile's worth there - see that margin's own doc) - being a ring or two more generous
+         *  than strictly needed on the other two edges costs nothing beyond enumerating a few extra
+         *  candidates that [onLayoutChildren]'s rectangle check then filters back out. */
+        private const val EDGE_MARGIN = 2
         private const val MIN_RADIUS = 2
 
         /** @see HexLayoutManager.findNearestTile */
