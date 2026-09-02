@@ -1,5 +1,6 @@
 package com.unciv.ui.components.tilegroups
 
+import com.badlogic.gdx.scenes.scene2d.Group
 import com.unciv.dev.FontDesktop
 import com.unciv.logic.map.HexCoord
 import com.unciv.logic.map.tile.RoadStatus
@@ -27,9 +28,12 @@ import org.junit.runner.RunWith
  * Since most of that owned-actor bookkeeping is `internal` (invisible from the separate `tests`
  * module), these tests work structurally: a [WorldTileGroup] not attached to any
  * [com.unciv.ui.components.tilegroups.layers.TileMapLayer] falls back to adding every owned actor
- * as a direct scene2d child of the group itself (see [com.unciv.ui.components.tilegroups.layers.TileLayer.addOwnedActor]),
- * so `children.size` is a public, exact stand-in for "how many actors this group currently owns" -
- * the thing a leak would inflate.
+ * to its layer's own [com.unciv.ui.components.tilegroups.layers.TileLayer.standaloneWrapper] (see
+ * [com.unciv.ui.components.tilegroups.layers.TileLayer.addOwnedActor]) - [contentActorCount] (the
+ * total across all 11 of those wrappers, not [WorldTileGroup.children] itself, which is always
+ * exactly 11 - one permanent wrapper `Group` per layer, regardless of how much content is inside
+ * them) is a public, exact stand-in for "how many actors this group currently owns" - the thing a
+ * leak would inflate.
  */
 @RunWith(GdxTestRunner::class)
 class TileGroupRebindTest {
@@ -98,11 +102,16 @@ class TileGroupRebindTest {
         return group
     }
 
+    /** @see the class doc's note on why this, not [WorldTileGroup.children].size, is the real
+     *  "how many actors does this group currently own" count. */
+    private fun contentActorCount(group: WorldTileGroup): Int =
+        group.children.sumOf { (it as Group).children.size }
+
     @Test
     fun `rebind matches a freshly constructed group for the same tile`() {
         val richGroup = tileGroupFor(richPos)
         richGroup.update(gameView.civView)
-        check(richGroup.children.size > 0) { "test setup didn't actually exercise any layers" }
+        check(contentActorCount(richGroup) > 0) { "test setup didn't actually exercise any layers" }
 
         val freshGroup = tileGroupFor(plainPos)
         freshGroup.update(gameView.civView)
@@ -111,7 +120,7 @@ class TileGroupRebindTest {
 
         assertEquals(
             "rebind() left behind actors that a fresh construction of the same tile wouldn't have",
-            freshGroup.children.size, richGroup.children.size
+            contentActorCount(freshGroup), contentActorCount(richGroup)
         )
     }
 
@@ -122,11 +131,11 @@ class TileGroupRebindTest {
 
         val freshGroup = tileGroupFor(plainPos)
         freshGroup.update(gameView.civView)
-        val expectedPlainCount = freshGroup.children.size
+        val expectedPlainCount = contentActorCount(freshGroup)
 
         repeat(5) {
             group.rebind(gameView.tileMapView.getTile(testGame.getTile(plainPos)), 0f, 0f, gameView.civView)
-            assertEquals("child count drifted on rebind cycle $it (-> plain tile)", expectedPlainCount, group.children.size)
+            assertEquals("child count drifted on rebind cycle $it (-> plain tile)", expectedPlainCount, contentActorCount(group))
 
             group.rebind(gameView.tileMapView.getTile(testGame.getTile(richPos)), 0f, 0f, gameView.civView)
             // Just needs to be stable across cycles, not equal to any particular fresh baseline
@@ -141,7 +150,7 @@ class TileGroupRebindTest {
 
         val freshTwinGroup = tileGroupFor(twinPos)
         freshTwinGroup.update(gameView.civView)
-        check(freshTwinGroup.children.size > 0) { "test setup didn't actually exercise any layers on twinPos" }
+        check(contentActorCount(freshTwinGroup) > 0) { "test setup didn't actually exercise any layers on twinPos" }
 
         richGroup.rebind(gameView.tileMapView.getTile(testGame.getTile(twinPos)), 0f, 0f, gameView.civView)
 
@@ -151,7 +160,7 @@ class TileGroupRebindTest {
         // silently missing, undercounting children versus the fresh reference group.
         assertEquals(
             "rebind() onto a tile with the same resource+improvement *names* didn't recreate their icons",
-            freshTwinGroup.children.size, richGroup.children.size
+            contentActorCount(freshTwinGroup), contentActorCount(richGroup)
         )
     }
 
@@ -165,5 +174,40 @@ class TileGroupRebindTest {
         assertEquals(123f, group.x, 0.001f)
         assertEquals(456f, group.y, 0.001f)
         assertEquals(testGame.getTile(plainPos), group.tile)
+    }
+
+    /**
+     * Regression test for a crash in [RecyclerWorldMapHolder]'s initial pool bind: that happens
+     * synchronously during [WorldScreen]'s own constructor, before [com.unciv.UncivGame.Current]'s
+     * `worldScreen` is set - a plain [TileGroup.rebind] onto a city tile at that point would reach
+     * [com.unciv.ui.components.tilegroups.citybutton.CityButton.update]'s
+     * [com.unciv.GUI.getSelectedPlayer] call and NPE (`worldScreen` still null). [rebindPositionOnly]
+     * exists specifically to be safe there: it must move identity/position *without* touching any
+     * layer's content at all, city button included.
+     */
+    @Test
+    fun `rebindPositionOnly moves identity and position without updating any layer's content`() {
+        val cityTile = testGame.getTile(0, 0)
+        check(cityTile.isCityCenter()) { "test setup didn't actually put a city on (0,0)" }
+
+        val group = tileGroupFor(plainPos)
+        group.update(gameView.civView) // some baseline content, from a safe (non-city) tile
+        check(contentActorCount(group) > 0) { "test setup didn't actually exercise any layers" }
+
+        // Must not throw - a live WorldScreen doesn't exist in this test, so if this touched
+        // CityButton.update() (via GUI.getSelectedPlayer()) it would NPE exactly like the bug did.
+        group.rebindPositionOnly(gameView.tileMapView.getTile(cityTile), 78f, 90f)
+
+        assertEquals(78f, group.x, 0.001f)
+        assertEquals(90f, group.y, 0.001f)
+        assertEquals(cityTile, group.tile)
+        // Every layer's own rebind() unconditionally drops its owned actors from the *old* tile
+        // (see e.g. TileLayerCityButton.rebind's "drops cityButtonWrapper as an owned actor"), and
+        // nothing here adds any back for the new tile - only a real update() call does that -
+        // so a group that's only ever had rebindPositionOnly called on it owns nothing at all.
+        assertEquals(
+            "rebindPositionOnly should leave every layer's content empty - only a real update() populates it",
+            0, contentActorCount(group)
+        )
     }
 }

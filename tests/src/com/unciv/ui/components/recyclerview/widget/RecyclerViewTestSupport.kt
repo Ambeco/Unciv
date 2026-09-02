@@ -57,8 +57,15 @@ object RecyclerViewTestSupport {
             private set
         var bindCount = 0
             private set
+        var recycleCount = 0
+            private set
         val boundPositions = mutableListOf<Int>()
+        val recycledHolders = mutableListOf<SimpleViewHolder>()
         val createdHolders = mutableListOf<SimpleViewHolder>()
+        /** ("bind"/"recycle", holder) in the exact order the Recycler called them - lets a test
+         *  assert ordering for one specific holder instance (e.g. a stolen-for-reuse holder's own
+         *  recycle must precede its own later rebind), not just aggregate counts. */
+        val events = mutableListOf<Pair<String, SimpleViewHolder>>()
 
         override fun onCreateViewHolder(parent: RecyclerView, viewType: Int): SimpleViewHolder {
             createCount++
@@ -71,6 +78,13 @@ object RecyclerViewTestSupport {
             bindCount++
             boundPositions.add(position)
             holder.widget.pref = itemSize
+            events.add("bind" to holder)
+        }
+
+        override fun onViewRecycled(holder: SimpleViewHolder) {
+            recycleCount++
+            recycledHolders.add(holder)
+            events.add("recycle" to holder)
         }
 
         override fun getItemCount(): Int = items.size

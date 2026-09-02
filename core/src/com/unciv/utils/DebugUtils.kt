@@ -36,4 +36,17 @@ object DebugUtils {
      */
     var CIV_IDS_IN_EXPERIMENT_GROUP: Set<String> = emptySet()
 
+    /** Use [com.unciv.ui.screens.worldscreen.worldmap.RecyclerWorldMapHolder] (a fixed-size pool of
+     *  [com.unciv.ui.components.tilegroups.WorldTileGroup]s, rebound as the viewport scrolls) instead
+     *  of [com.unciv.ui.screens.worldscreen.worldmap.EagerWorldMapHolder] (one permanently alive per
+     *  map tile) for the world map. Debug-gated rather than a persisted [com.unciv.models.metadata.GameSettings]
+     *  setting while it's still missing full parity with [com.unciv.ui.screens.worldscreen.worldmap.EagerWorldMapHolder]
+     *  (e.g. bulk map-reveal only covers the pool, not every tile) - see
+     *  [com.unciv.ui.screens.worldscreen.worldmap.RecyclerWorldMapHolder]'s class doc for the full list.
+     *  Surfaced as a checkbox on Options > Display's Experimental section (not [com.unciv.ui.popups.options.DebugTab] -
+     *  it's meant to be easy to find for testing) - toggling it there reloads the world screen for you; flipping
+     *  this field directly anywhere else needs a manual world screen reload to take effect, since it's
+     *  only read once, at [com.unciv.ui.screens.worldscreen.WorldScreen] construction. */
+    var USE_RECYCLER_WORLD_MAP: Boolean = false
+
 }

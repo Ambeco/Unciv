@@ -239,6 +239,18 @@ class TileGroupMap<T: TileGroup>(
      *  (see [TileGroup.rebind]); that's pool policy, not this class's job. */
     fun getTileGroupOrNull(tile: Tile): T? = tileToGroup[tile]
 
+    /** The world-coordinate position [tile] would be laid out at if it were included in [tileGroups] -
+     *  the same formula [init] uses, minus per-group unwrap (only meaningful for the seam-adjacent
+     *  groups [tileGroupsToUnwrap] handles specially at construction). A pooled/recycling caller
+     *  uses this to know where to move a [T] it's about to [TileGroup.rebind] onto [tile]. */
+    fun getTilePosition(tile: Tile): Vector2 {
+        val positionalVector = HexMath.hex2WorldCoords(tile.position)
+        return Vector2(
+            positionalVector.x * 0.8f * groupSize - bottomX,
+            positionalVector.y * 0.8f * groupSize - bottomY
+        )
+    }
+
     /**
      * Returns the positional coordinates of the TileGroupMap center.
      */

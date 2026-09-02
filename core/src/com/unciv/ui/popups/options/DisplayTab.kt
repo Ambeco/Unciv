@@ -16,6 +16,7 @@ import com.unciv.ui.components.widgets.WrappableLabel
 import com.unciv.ui.images.ImageGetter
 import com.unciv.ui.popups.ConfirmPopup
 import com.unciv.ui.screens.worldscreen.NotificationsScroll
+import com.unciv.utils.DebugUtils
 import com.unciv.utils.Display
 import com.unciv.utils.ScreenMode
 import com.unciv.utils.ScreenOrientation
@@ -90,6 +91,7 @@ internal class DisplayTab(
 
         addCheckbox("Animate Unit movement button", settings::unitMovementButtonAnimation)
         addCheckbox("Animate Unit actions menu", settings::unitActionsTableAnimation)
+        addRecyclerWorldMapCheckbox()
 
         super.lateInitialize()
     }
@@ -196,6 +198,18 @@ internal class DisplayTab(
     private fun addNotificationScrollSelect() {
         addEnumAsStringSelectBox("Notifications on world screen", settings::notificationScroll, NotificationsScroll.UserSetting.entries) {
             GUI.setUpdateWorldOnNextRender()
+        }
+    }
+
+    /** Not a persisted [GameSettings] field - [DebugUtils.USE_RECYCLER_WORLD_MAP] is still
+     *  debug-gated rather than a real setting while [com.unciv.ui.screens.worldscreen.worldmap.RecyclerWorldMapHolder]
+     *  has known gaps (see its class doc), but it's surfaced here rather than only on the hidden
+     *  Debug page so it's easier to find for testing. Only read once at [com.unciv.ui.screens.worldscreen.WorldScreen]
+     *  construction, so toggling it reloads the world screen (same as the tileset/skin checkboxes
+     *  above) to take effect immediately rather than on next game load. */
+    private fun addRecyclerWorldMapCheckbox() {
+        addCheckbox("Use pooled (recycler) world map [EXPERIMENTAL]", DebugUtils::USE_RECYCLER_WORLD_MAP) {
+            reloadWorldAndOptions()
         }
     }
 }

@@ -115,4 +115,63 @@ class RecyclingAndNotifyTest {
             assertEquals(pos, holder.adapterPosition)
         }
     }
+
+    // region onViewRecycled
+
+    @Test
+    fun `onViewRecycled is not called for a holder that survives a small scroll`() {
+        val (rv, _, adapter) = makeRecycler(itemCount = 1000, itemSize = 10f, width = 50f, height = 50f)
+        val holder2 = rv.findViewHolderForAdapterPosition(2)!!
+
+        rv.scrollBy(0f, 5f) // still on-screen afterwards - nothing should be evicted
+        rv.layout()
+
+        assertEquals("a still-visible holder must never be told it was recycled",
+            0, adapter.recycledHolders.count { it === holder2 })
+    }
+
+    @Test
+    fun `onViewRecycled fires exactly once for a holder that scrolls off-screen`() {
+        val (rv, _, adapter) = makeRecycler(itemCount = 6, itemSize = 10f, width = 50f, height = 50f)
+        val holder0 = rv.findViewHolderForAdapterPosition(0)!!
+        assertEquals(0, adapter.recycleCount)
+
+        rv.scrollToPosition(5)
+        rv.layout()
+        rv.scrollToPosition(5) // idempotent extra layout - must not double-recycle the same holder
+        rv.layout()
+
+        assertEquals(1, adapter.recycledHolders.count { it === holder0 })
+    }
+
+    @Test
+    fun `a holder stolen for reuse at a different position is recycled before its rebind`() {
+        val (rv, _, adapter) = makeRecycler(itemCount = 1000, itemSize = 10f, width = 50f, height = 50f)
+        val holder0 = rv.findViewHolderForAdapterPosition(0)!!
+        adapter.events.clear()
+
+        rv.scrollBy(0f, 50f) // several items scroll fully past the viewport in one jump
+        rv.layout()
+
+        // holder0 left the window and - being the only view type in play - must have been reused
+        // for one of the newly-visible positions within this very pass: its own onViewRecycled call
+        // must appear in the event log strictly before the bind that overwrites its old content.
+        val recycleIndex = adapter.events.indexOfFirst { it.first == "recycle" && it.second === holder0 }
+        val rebindIndex = adapter.events.indexOfFirst { it.first == "bind" && it.second === holder0 }
+        assertTrue("expected holder0 to have been recycled this pass", recycleIndex >= 0)
+        assertTrue("expected holder0 to have been reused (rebound) this same pass", rebindIndex >= 0)
+        assertTrue("recycle must precede the rebind that overwrites its content", recycleIndex < rebindIndex)
+    }
+
+    @Test
+    fun `explicit recycleViewAt calls onViewRecycled`() {
+        val (rv, _, adapter) = makeRecycler(itemCount = 5)
+        val holder2 = rv.findViewHolderForAdapterPosition(2)!!
+
+        rv.recycler.recycleViewAt(2)
+
+        assertEquals(1, adapter.recycledHolders.count { it === holder2 })
+    }
+
+    // endregion
 }

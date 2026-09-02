@@ -642,6 +642,23 @@ open class RecyclerView : WidgetGroup() {
         open fun onBindViewHolder(holder: VH, position: Int, payloads: List<Any>) = onBindViewHolder(holder, position)
 
         /**
+         * Matches Android's `Adapter.onViewRecycled`: called once [holder] is detached and returned
+         * to the pool *without* an immediate rebind to a new position in the same pass - i.e. exactly
+         * when a holder that was still showing something a moment ago genuinely stops representing
+         * any live position, as opposed to [onBindViewHolder] firing again immediately for a new one
+         * (see [Recycler.recycleScrap]/[Recycler.recycleViewAt]/[Recycler.getHolderForPosition]'s
+         * same-pass reuse path for the exact firing points). This is the hook for releasing anything
+         * a bind acquired that isn't itself one of [holder]'s [ViewHolder.getItemViews] - e.g.
+         * releasing a jointly-owned resource keyed by [holder]'s *current* position/content before
+         * that identity is gone for good (see
+         * [com.unciv.ui.screens.worldscreen.worldmap.HexTileAdapter]'s arrow bookkeeping for a
+         * concrete case: an arrow between two tiles needs to know when *either* tile's holder
+         * actually leaves the pool, not just when a new one enters). Default implementation does
+         * nothing - purely opt-in, matching Android's own default.
+         */
+        open fun onViewRecycled(holder: VH) {}
+
+        /**
          * API CHANGE: additive, no Android equivalent. When non-null, the RecyclerView keeps every
          * attached item Actor inserted in sorted order (per this comparator, comparing the individual
          * Actors directly - not the [ViewHolder]s that own them) within their shared container,
@@ -1130,6 +1147,7 @@ open class RecyclerView : WidgetGroup() {
         /** Pools every holder still in [scrap] (i.e. no longer visible) after a layout pass. */
         internal fun recycleScrap() {
             for (holder in scrap.values) {
+                adapter?.onViewRecycled(holder)
                 detachHolderViews(holder)
                 scrapPool.getOrPut(holder.itemViewType) { mutableListOf() }.add(holder)
             }
@@ -1175,7 +1193,11 @@ open class RecyclerView : WidgetGroup() {
             // Otherwise reclaim a same-type holder that is leaving the window this pass (rebind it
             // for the new position) before touching the pool - this is what recycles a holder
             // scrolling off one edge into a position scrolling on at the other edge in one pass.
-            val stolen = removeScrapOfType(viewType)
+            // Stealing it here (rather than leaving it for recycleScrap to sweep up) is exactly the
+            // "leaving the pool without ever reaching scrapPool" case onViewRecycled exists for - a
+            // holder pulled from scrapPool below already had it called back when it *first* left
+            // (see recycleScrap/recycleViewAt), so only this branch needs the call.
+            val stolen = removeScrapOfType(viewType)?.also { adapter?.onViewRecycled(it) }
             val pooled = stolen
                 ?: scrapPool[viewType]?.let { if (it.isNotEmpty()) it.removeAt(it.size - 1) else null }
             val holder = pooled ?: a.createViewHolder(this@RecyclerView, viewType)
@@ -1202,6 +1224,7 @@ open class RecyclerView : WidgetGroup() {
         /** Detaches the view at [position] (if attached) and returns its holder to the pool. */
         fun recycleViewAt(position: Int) {
             val holder = activeViews.remove(position) ?: return
+            adapter?.onViewRecycled(holder)
             detachHolderViews(holder)
             scrapPool.getOrPut(holder.itemViewType) { mutableListOf() }.add(holder)
         }
@@ -1215,8 +1238,8 @@ open class RecyclerView : WidgetGroup() {
         fun getPositions(): Set<Int> = activeViews.keys
 
         internal fun clear() {
-            activeViews.values.forEach { detachHolderViews(it) }
-            scrap.values.forEach { detachHolderViews(it) }
+            activeViews.values.forEach { adapter?.onViewRecycled(it); detachHolderViews(it) }
+            scrap.values.forEach { adapter?.onViewRecycled(it); detachHolderViews(it) }
             activeViews.clear()
             scrap.clear()
             childViewHolders.clear()

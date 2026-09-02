@@ -68,9 +68,11 @@ import com.unciv.ui.screens.worldscreen.unit.UnitTable
 import com.unciv.ui.screens.worldscreen.unit.actions.UnitActionsTable
 import com.unciv.ui.screens.worldscreen.worldmap.AbstractWorldMapHolder
 import com.unciv.ui.screens.worldscreen.worldmap.EagerWorldMapHolder
+import com.unciv.ui.screens.worldscreen.worldmap.RecyclerWorldMapHolder
 import com.unciv.ui.screens.worldscreen.worldmap.WorldMapHolder
 import com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater.updateTiles
 import com.unciv.utils.Concurrency
+import com.unciv.utils.DebugUtils
 import com.unciv.utils.debug
 import com.unciv.utils.launchOnGLThread
 import com.unciv.utils.launchOnThreadPool
@@ -131,7 +133,9 @@ class WorldScreen(
     val canChangeState
         get() = isPlayersTurn && !viewingCiv.isSpectator()
 
-    private val mapHolderImpl: AbstractWorldMapHolder = EagerWorldMapHolder(this, gameInfo.tileMap)
+    private val mapHolderImpl: AbstractWorldMapHolder =
+        if (DebugUtils.USE_RECYCLER_WORLD_MAP) RecyclerWorldMapHolder(this, gameInfo.tileMap)
+        else EagerWorldMapHolder(this, gameInfo.tileMap)
 
     /** Public surface of [mapHolderImpl] - typed as the lean [WorldMapHolder] interface rather than
      *  [AbstractWorldMapHolder] deliberately: everywhere outside this class (and the world-map
