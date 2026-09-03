@@ -26,7 +26,7 @@ import com.unciv.view.MapUnitView
 
 /** Interface for creating floating "action" buttons on tiles */
 interface OverlayButtonData{
-    fun createButton(worldMapHolder: WorldMapHolder): Actor
+    fun createButton(worldMapHolder: AbstractWorldMapHolder): Actor
 }
 
 const val buttonSize = 60f
@@ -34,11 +34,11 @@ const val smallerCircleSizes = 25f
 
 class MoveHereOverlayButtonData(val unitToTurnsToDestination: HashMap<MapUnitView, Int>, val tile: Tile) :
     OverlayButtonData {
-    override fun createButton(worldMapHolder: WorldMapHolder): Actor {
+    override fun createButton(worldMapHolder: AbstractWorldMapHolder): Actor {
         return getMoveHereButton(worldMapHolder)
     }
 
-    private fun getMoveHereButton(worldMapHolder: WorldMapHolder): Group {
+    private fun getMoveHereButton(worldMapHolder: AbstractWorldMapHolder): Group {
         val isParadrop = unitToTurnsToDestination.keys.all { it.isPreparingParadrop() }
         val image = if (isParadrop)
             ImageGetter.getUnitActionPortrait("Paradrop", buttonSize / 2)
@@ -78,11 +78,11 @@ class MoveHereOverlayButtonData(val unitToTurnsToDestination: HashMap<MapUnitVie
 
 // Contains the data required to draw a "swap with" button
 class SwapWithOverlayButtonData(val unitView: MapUnitView, val tile: Tile) : OverlayButtonData {
-    override fun createButton(worldMapHolder: WorldMapHolder): Actor {
+    override fun createButton(worldMapHolder: AbstractWorldMapHolder): Actor {
         return getSwapWithButton(worldMapHolder)
     }
 
-    fun getSwapWithButton(worldMapHolder: WorldMapHolder): Group {
+    fun getSwapWithButton(worldMapHolder: AbstractWorldMapHolder): Group {
         val swapWithButton = Group()
         swapWithButton.setSize(buttonSize, buttonSize)
         swapWithButton.addActor(ImageGetter.getCircle(size = buttonSize))
@@ -109,11 +109,11 @@ class SwapWithOverlayButtonData(val unitView: MapUnitView, val tile: Tile) : Ove
 
 // Contains the data required to draw a "connect road" button
 class ConnectRoadOverlayButtonData(val unitView: MapUnitView, val tile: Tile) : OverlayButtonData {
-    override fun createButton(worldMapHolder: WorldMapHolder): Actor {
+    override fun createButton(worldMapHolder: AbstractWorldMapHolder): Actor {
         return getConnectRoadButton(worldMapHolder)
     }
 
-    private fun getConnectRoadButton(worldMapHolder: WorldMapHolder): Group {
+    private fun getConnectRoadButton(worldMapHolder: AbstractWorldMapHolder): Group {
         val connectRoadButton = Group()
         connectRoadButton.setSize(buttonSize, buttonSize)
         connectRoadButton.addActor(ImageGetter.getUnitActionPortrait("RoadConnection", buttonSize * 0.8f).apply {
@@ -133,7 +133,7 @@ class ConnectRoadOverlayButtonData(val unitView: MapUnitView, val tile: Tile) : 
         return connectRoadButton
     }
 
-    private fun connectRoadToTargetTile(worldMapHolder: WorldMapHolder, selectedUnit: MapUnit, targetTile: Tile) {
+    private fun connectRoadToTargetTile(worldMapHolder: AbstractWorldMapHolder, selectedUnit: MapUnit, targetTile: Tile) {
         selectedUnit.automatedRoadConnectionDestination = targetTile.position
         selectedUnit.automatedRoadConnectionPath = null
         selectedUnit.action = UnitActionType.ConnectRoad.value
@@ -152,11 +152,11 @@ class ConnectRoadOverlayButtonData(val unitView: MapUnitView, val tile: Tile) : 
 
 // Contains the data required to draw a "move spy" button
 class MoveSpyOverlayButtonData(val spy: Spy, val city: City?) : OverlayButtonData {
-    override fun createButton(worldMapHolder: WorldMapHolder): Actor {
+    override fun createButton(worldMapHolder: AbstractWorldMapHolder): Actor {
         return getMoveSpyButton(worldMapHolder)
     }
 
-    private fun getMoveSpyButton(worldMapHolder: WorldMapHolder): Group {
+    private fun getMoveSpyButton(worldMapHolder: AbstractWorldMapHolder): Group {
         val spyActionButton = Group()
         spyActionButton.setSize(buttonSize, buttonSize)
         spyActionButton.addActor(ImageGetter.getCircle(size = buttonSize))

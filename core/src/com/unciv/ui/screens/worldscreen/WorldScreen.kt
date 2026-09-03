@@ -3,6 +3,7 @@ package com.unciv.ui.screens.worldscreen
 import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
+import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.utils.Align
 import com.unciv.Constants
@@ -65,6 +66,8 @@ import com.unciv.ui.screens.worldscreen.topbar.WorldScreenTopBar
 import com.unciv.ui.screens.worldscreen.unit.AutoPlay
 import com.unciv.ui.screens.worldscreen.unit.UnitTable
 import com.unciv.ui.screens.worldscreen.unit.actions.UnitActionsTable
+import com.unciv.ui.screens.worldscreen.worldmap.AbstractWorldMapHolder
+import com.unciv.ui.screens.worldscreen.worldmap.EagerWorldMapHolder
 import com.unciv.ui.screens.worldscreen.worldmap.WorldMapHolder
 import com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater.updateTiles
 import com.unciv.utils.Concurrency
@@ -128,7 +131,17 @@ class WorldScreen(
     val canChangeState
         get() = isPlayersTurn && !viewingCiv.isSpectator()
 
-    val mapHolder = WorldMapHolder(this, gameInfo.tileMap)
+    private val mapHolderImpl: AbstractWorldMapHolder = EagerWorldMapHolder(this, gameInfo.tileMap)
+
+    /** Public surface of [mapHolderImpl] - typed as the lean [WorldMapHolder] interface rather than
+     *  [AbstractWorldMapHolder] deliberately: everywhere outside this class (and the world-map
+     *  subsystem's own closely-coupled files - `OverlayButtonData`,
+     *  [com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater]) only ever needs to
+     *  query/command the map from outside, never to hang Actors directly onto it - see
+     *  [WorldMapHolder]'s own doc. This class uses [mapHolderImpl] directly wherever it genuinely
+     *  needs that fuller surface (e.g. [AbstractWorldMapHolder.resetArrows]/
+     *  [AbstractWorldMapHolder.updateMovementOverlay]/[AbstractWorldMapHolder.addTiles] below). */
+    val mapHolder: WorldMapHolder get() = mapHolderImpl
 
     internal var waitingForAutosave = false
     private val mapVisualization = MapVisualization(gameInfo, viewingCiv)
@@ -169,14 +182,16 @@ class WorldScreen(
         minimapWrapper.x = stage.width - minimapWrapper.width
 
         // This is the most memory-intensive operation we have currently, most OutOfMemory errors will occur here
-        mapHolder.addTiles()
+        mapHolderImpl.addTiles()
         mapHolder.reloadMaxZoom()
 
         // resume music (in case choices from the menu lead to instantiation of a new WorldScreen)
         UncivGame.Current.musicController.resume()
 
-        stage.addActor(mapHolder)
-        stage.scrollFocus = mapHolder
+        // mapHolder is typed as the WorldMapHolder interface (so implementations can extend
+        // whatever Actor base they need), but every real implementation is always an Actor.
+        stage.addActor(mapHolder as Actor)
+        stage.scrollFocus = mapHolderImpl.scrollFocusTarget // routes mouse-wheel zoom/scroll to the ZoomableScrollPane mapHolder wraps
         stage.addActor(notificationsScroll)  // very low in z-order, so we're free to let it extend _below_ tile info and minimap if we want
         stage.addActor(tutorialTaskTable)    // behind topBar!
         stage.addActor(topBar)
@@ -305,8 +320,8 @@ class WorldScreen(
         globalShortcuts.add(KeyboardBinding.MusicPlayer) {
             WorldScreenMusicPopup(this).open(force = true)
         }
-        globalShortcuts.add(Input.Keys.NUMPAD_ADD) { this.mapHolder.zoomIn() }    //   '+' Zoom
-        globalShortcuts.add(Input.Keys.NUMPAD_SUBTRACT) { this.mapHolder.zoomOut() }    //   '-' Zoom
+        globalShortcuts.add(Input.Keys.NUMPAD_ADD) { this.mapHolder.zoomIn(immediate = false) }    //   '+' Zoom
+        globalShortcuts.add(Input.Keys.NUMPAD_SUBTRACT) { this.mapHolder.zoomOut(immediate = false) }    //   '-' Zoom
         globalShortcuts.add(KeyboardBinding.ToggleUI) { toggleUI() }
         globalShortcuts.add(KeyboardBinding.ToggleYieldDisplay) { minimapWrapper.yieldImageButton.toggle() }
         globalShortcuts.add(KeyboardBinding.ToggleWorkedTilesDisplay) { minimapWrapper.populationImageButton.toggle() }
@@ -408,12 +423,12 @@ class WorldScreen(
             displayTutorialTaskOnUpdate()
         }
 
-        mapHolder.resetArrows()
+        mapHolderImpl.resetArrows()
         if (UncivGame.Current.settings.showUnitMovements) {
             val allUnits = gameInfo.civilizations.asSequence().flatMap { it.units.getCivUnits() }
             val allAttacks = allUnits.map { unit -> unit.attacksSinceTurnStart.asSequence().map { attacked -> Triple(unit.civ, unit.getTile().position, attacked.toHexCoord()) } }.flatten() +
                 gameInfo.civilizations.asSequence().flatMap { civInfo -> civInfo.attacksSinceTurnStart.asSequence().map { Triple(civInfo, it.source, it.target) } }
-            mapHolder.updateMovementOverlay(
+            mapHolderImpl.updateMovementOverlay(
                 allUnits.filter(mapVisualization::isUnitPastVisible).map { selectedGameView.getForeignMapUnitView(it) },
                 selectedGameView.civView.getUnits().asSequence(),
                 allAttacks.filter { (attacker, source, target) -> mapVisualization.isAttackVisible(attacker, source, target) }
@@ -427,7 +442,7 @@ class WorldScreen(
         // it doesn't update the explored tiles of the civ... need to think about that harder
         // it causes a bug when we move a unit to an unexplored tile (for instance a cavalry unit which can move far)
 
-        mapHolder.updateTiles(getGameViewConsideringForOfWar().civView)
+        mapHolderImpl.updateTiles(getGameViewConsideringForOfWar().civView)
 
         topBar.update(selectedCiv)
         if (tutorialTaskTable.isVisible)
@@ -574,9 +589,9 @@ class WorldScreen(
         val viewingCivName: String,
         val fogOfWar: Boolean
     ) {
-        val zoom = mapHolder.scaleX
-        val scrollX = mapHolder.scrollX
-        val scrollY = mapHolder.scrollY
+        val zoom = mapHolder.mapZoomScale
+        val scrollX = mapHolder.getScrollX()
+        val scrollY = mapHolder.getScrollY()
     }
     
     @Readonly
@@ -589,8 +604,8 @@ class WorldScreen(
         // This is not the case if you have a multiplayer game where you play as 2 civs
         if (viewingCiv.civID == restoreState.viewingCivName) {
             mapHolder.zoom(restoreState.zoom)
-            mapHolder.scrollX = restoreState.scrollX
-            mapHolder.scrollY = restoreState.scrollY
+            mapHolder.setScrollX(restoreState.scrollX)
+            mapHolder.setScrollY(restoreState.scrollY)
             mapHolder.updateVisualScroll()
         }
 

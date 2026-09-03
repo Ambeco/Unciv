@@ -20,29 +20,33 @@ import com.unciv.models.metadata.GameSettings
 import com.unciv.ui.components.ZoomGestureListener
 import com.unciv.ui.components.input.KeyboardPanningListener
 
-
 open class ZoomableScrollPane(
     private val extraCullingX: Float = 0f,
     private val extraCullingY: Float = 0f,
-    var minZoom: Float = 0.5f,
-    var maxZoom: Float = 1 / minZoom // if we can halve the size, then by default also allow to double it
-) : ScrollPane(Group()) {
-    var continuousScrollingX = false
+    override var minZoom: Float = 0.5f,
+    override var maxZoom: Float = 1 / minZoom // if we can halve the size, then by default also allow to double it
+) : ScrollPane(Group()), ZoomableScrollable {
+    override var continuousScrollingX = false
 
-    var onViewportChangedListener: ((width: Float, height: Float, viewport: Rectangle) -> Unit)? = null
-    var onPanStopListener: (() -> Unit)? = null
-    var onPanStartListener: (() -> Unit)? = null
-    var onZoomStopListener: (() -> Unit)? = null
-    var onZoomStartListener: (() -> Unit)? = null
+    override var onViewportChangedListener: ((width: Float, height: Float, viewport: Rectangle) -> Unit)? = null
+    override var onPanStopListener: (() -> Unit)? = null
+    override var onPanStartListener: (() -> Unit)? = null
+    override var onZoomStopListener: (() -> Unit)? = null
+    override var onZoomStartListener: (() -> Unit)? = null
     private val zoomListener = ZoomListener()
 
     private val horizontalPadding get() = width / 2
     private val verticalPadding get() = height / 2
 
     /** Will be set from [GameSettings.mapAutoScroll] */
-    var isAutoScrollEnabled = false
+    override var isAutoScrollEnabled = false
     /** Will be set from [GameSettings.mapPanningSpeed] */
-    var mapPanningSpeed: Float = 6f
+    override var mapPanningSpeed: Float = 6f
+
+    // Named distinctly from Actor's own inherited `scaleX` (which callers who only touch this
+    // through zoom()/zoomIn()/zoomOut() never see directly) to avoid a JVM signature clash: `zoom()`
+    // sets this pane's own scaleX, since that's the actor zoom() actually calls setScale() on.
+    override val mapZoomScale: Float get() = scaleX
 
     init {
         this.addListener(zoomListener)
@@ -134,7 +138,7 @@ open class ZoomableScrollPane(
         )
     }
 
-    open fun zoom(zoomScale: Float) {
+    override fun zoom(zoomScale: Float) {
         val newZoom = zoomScale.coerceIn(minZoom, maxZoom)
         val oldZoomX = scaleX
         val oldZoomY = scaleY
@@ -156,20 +160,20 @@ open class ZoomableScrollPane(
         // by half (i.e. middle) of what our size changed.
         // However, we also changed the padding, which is exactly equal to half of our size change, so we actually don't need to move our center at all.
     }
-    fun zoomIn(immediate: Boolean = false) {
+    override fun zoomIn(immediate: Boolean) {
         if (immediate)
             zoom(scaleX / 0.8f)
         else
             zoomListener.zoomIn(0.8f)
     }
-    fun zoomOut(immediate: Boolean = false) {
+    override fun zoomOut(immediate: Boolean) {
         if (immediate)
             zoom(scaleX * 0.8f)
         else
             zoomListener.zoomOut(0.8f)
     }
 
-    fun isZooming(): Boolean {
+    override fun isZooming(): Boolean {
         return zoomListener.isZooming
     }
 
@@ -330,7 +334,7 @@ open class ZoomableScrollPane(
      *
      * Positive [deltaX] = Left, Positive [deltaY] = DOWN
      */
-    fun doKeyOrMousePanning(deltaX: Float, deltaY: Float) {
+    override fun doKeyOrMousePanning(deltaX: Float, deltaY: Float) {
         if (deltaX == 0f && deltaY == 0f) return
         val amountToMove = mapPanningSpeed / scaleX
         scrollX = restrictX(deltaX * amountToMove)
@@ -368,7 +372,7 @@ open class ZoomableScrollPane(
      * @return `true` if scroll position got changed or started being changed, `false`
      *   if already centered there or already scrolling there
      */
-    fun scrollTo(x: Float, y: Float, immediately: Boolean = false): Boolean {
+    override fun scrollTo(x: Float, y: Float, immediately: Boolean): Boolean {
         if (scrollingDestination() == Vector2(x, y)) return false
 
         removeAction(scrollingAction)
@@ -389,7 +393,7 @@ open class ZoomableScrollPane(
     }
 
     /** Overwrite [rect] with the currently scrolled-to viewport of the whole scrollable area */
-    fun getViewport(rect: Rectangle) {
+    override fun getViewport(rect: Rectangle) {
         val viewportFromLeft = scrollX
         /** In the default coordinate system, the y origin is at the bottom, but scrollY is from the top, so we need to invert. */
         val viewportFromBottom = maxY - scrollY
@@ -402,7 +406,7 @@ open class ZoomableScrollPane(
     /** @return the currently scrolled-to viewport of the whole scrollable area */
     private fun getViewport() = Rectangle().also { getViewport(it) }
 
-    fun onViewportChanged() {
+    override fun onViewportChanged() {
         onViewportChangedListener?.invoke(maxX, maxY, getViewport())
     }
 }

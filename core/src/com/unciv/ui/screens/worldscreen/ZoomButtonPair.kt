@@ -5,11 +5,11 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.utils.Align
 import com.unciv.ui.screens.basescreen.BaseScreen
-import com.unciv.ui.components.widgets.ZoomableScrollPane
 import com.unciv.ui.components.input.onClick
 import com.unciv.ui.components.extensions.setFontSize
+import com.unciv.ui.components.widgets.ZoomableScrollable
 
-class ZoomButtonPair(private val mapHolder: ZoomableScrollPane) : Table(BaseScreen.skin) {
+class ZoomButtonPair(private val mapHolder: ZoomableScrollable) : Table(BaseScreen.skin) {
     init {
         addButton("+") {
             mapHolder.zoomIn()

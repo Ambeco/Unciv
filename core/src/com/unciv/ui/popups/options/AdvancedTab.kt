@@ -8,6 +8,7 @@ import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
+import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.unciv.Constants
@@ -27,6 +28,7 @@ import com.unciv.ui.components.extensions.disable
 import com.unciv.ui.components.extensions.enable
 import com.unciv.ui.components.extensions.isEnabled
 import com.unciv.ui.components.extensions.setFontColor
+import com.unciv.ui.screens.worldscreen.worldmap.AbstractWorldMapHolder
 import com.unciv.ui.components.extensions.toLabel
 import com.unciv.ui.components.extensions.toTextButton
 import com.unciv.ui.components.fonts.FontFamilyData
@@ -347,7 +349,9 @@ internal class AdvancedTab(
             newScreen.stage.viewport.update(currentConfig.width, currentConfig.height, true)
 
             // Reposition mapholder and minimap whose position was based on the previous stage size...
-            newScreen.mapHolder.setSize(newScreen.stage.width, newScreen.stage.height)
+            // setSize is an Actor method, not part of WorldMapHolder's own contract - every real
+            // implementation is always an Actor (see WorldMapHolder's doc), so this cast is safe.
+            (newScreen.mapHolder as Actor).setSize(newScreen.stage.width, newScreen.stage.height)
             newScreen.mapHolder.layout()
             newScreen.minimapWrapper.x = newScreen.stage.width - newScreen.minimapWrapper.width
 
@@ -357,9 +361,12 @@ internal class AdvancedTab(
                 selectUnit = true
             )
 
-            newScreen.mapHolder.onTileClicked(newScreen.selectedGameView.getTile(newScreen.mapHolder.tileMap[-2, 3])) // Then click on Keshik
+            // onTileClicked isn't part of WorldMapHolder's own contract (see that interface's doc) -
+            // same reasoning as the Actor cast above.
+            val abstractMapHolder = newScreen.mapHolder as AbstractWorldMapHolder
+            abstractMapHolder.onTileClicked(newScreen.selectedGameView.getTile(newScreen.mapHolder.tileMap[-2, 3])) // Then click on Keshik
             if (currentConfig.attackCity)
-                newScreen.mapHolder.onTileClicked(newScreen.selectedGameView.getTile(newScreen.mapHolder.tileMap[-2, 2])) // Then click city again for attack table
+                abstractMapHolder.onTileClicked(newScreen.selectedGameView.getTile(newScreen.mapHolder.tileMap[-2, 2])) // Then click city again for attack table
             newScreen.mapHolder.zoomIn(true)
             withContext(Dispatchers.IO) {
                 Thread.sleep(300)

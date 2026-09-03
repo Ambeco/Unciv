@@ -36,9 +36,9 @@ import com.unciv.view.MapUnitView
  */
 object WorldMapTileUpdater {
 
-    private val WorldMapHolder.tileMapView get() = worldScreen.selectedGameView.tileMapView
+    private val AbstractWorldMapHolder.tileMapView get() = worldScreen.selectedGameView.tileMapView
 
-     fun WorldMapHolder.updateTiles(civView: CivView) {
+     fun AbstractWorldMapHolder.updateTiles(civView: CivView) {
         val viewingCiv = civView.getCiv()
 
         if (isMapRevealEnabled(civView)) {
@@ -84,10 +84,13 @@ object WorldMapTileUpdater {
         // General update of all tiles - reads back the markers just computed above.
         forEachVisibleTileGroup { it.update(civView) }
 
-        zoom(scaleX) // zoom to current scale, to set the size of the city buttons after "next turn"
+        // Re-applies the current zoom (mapZoomScale, née scaleX before the interface split) purely
+        // to re-trigger onZoomed()'s city-button-size clamp - e.g. after a new city was founded -
+        // without actually changing the player's zoom level.
+        zoom(mapZoomScale)
     }
 
-    private fun WorldMapHolder.updateTilesForSelectedUnit(unitView: MapUnitView) {
+    private fun AbstractWorldMapHolder.updateTilesForSelectedUnit(unitView: MapUnitView) {
         // Update flags for units which have them
         if (!unitView.isAirUnit()) {
             unitView.getTile().setSelectedUnitForFlag(unitView.getUnit())
@@ -242,7 +245,7 @@ object WorldMapTileUpdater {
         }
     }
 
-    private fun WorldMapHolder.updateTilesForSelectedSpy(spy: Spy) {
+    private fun AbstractWorldMapHolder.updateTilesForSelectedSpy(spy: Spy) {
         for (tile in tileMap.tileList) {
             val tileView = tileMapView.getTile(tile)
             // Every tile's own highlight/crosshair/good-city-location-indicator is already reset by
@@ -259,7 +262,7 @@ object WorldMapTileUpdater {
         }
     }
 
-    private fun WorldMapHolder.updateBombardableTilesForSelectedCity(city: City) {
+    private fun AbstractWorldMapHolder.updateBombardableTilesForSelectedCity(city: City) {
         if (!city.canBombard()) return
         for (tile in TargetHelper.getBombardableTiles(city)) {
             tileMapView.getTile(tile).addMarker(TileMarker.BOMBARDABLE)

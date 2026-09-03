@@ -8,10 +8,10 @@ import com.badlogic.gdx.scenes.scene2d.actions.RepeatAction
 import com.badlogic.gdx.scenes.scene2d.ui.TextField
 import com.badlogic.gdx.utils.Disposable
 import com.unciv.ui.components.extensions.isControlKeyPressed
-import com.unciv.ui.components.widgets.ZoomableScrollPane
+import com.unciv.ui.components.widgets.ZoomableScrollable
 
 class KeyboardPanningListener(
-    private val mapHolder: ZoomableScrollPane,
+    private val mapHolder: ZoomableScrollable,
     allowWASD: Boolean
 ) : InputListener(), Disposable {
     companion object {
