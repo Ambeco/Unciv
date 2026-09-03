@@ -143,4 +143,12 @@ class TileLayerUnitSprite(tileGroup: TileGroup, size: Float) : TileLayer(tileGro
         civilianSlot = null
         militarySlot = null
     }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops both sprite-slot Groups as owned actors
+        // Slots are also position-pinned at creation time (spriteGroup.setPosition in updateSlot).
+        civilianSlot = null
+        militarySlot = null
+        combatFlashShown = null
+    }
 }

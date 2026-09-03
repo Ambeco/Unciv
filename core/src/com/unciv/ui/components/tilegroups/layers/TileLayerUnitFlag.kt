@@ -141,4 +141,10 @@ class TileLayerUnitFlag(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup
     override fun determineVisibility() {
         isVisible = civilianUnitIcon != null || militaryUnitIcon != null
     }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops both flag icons as owned actors
+        civilianUnitIcon = null
+        militaryUnitIcon = null
+    }
 }

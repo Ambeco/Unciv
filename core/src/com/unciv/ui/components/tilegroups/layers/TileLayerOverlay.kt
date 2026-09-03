@@ -338,4 +338,21 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
         isVisible = fog != null || unexplored != null || highlight != null || crosshair != null ||
             goodCityLocationIndicator != null || animationActor != null
     }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops all six overlay Images as owned actors
+        highlight = null
+        crosshair = null
+        goodCityLocationIndicator = null
+        fog = null
+        unexplored = null
+        // animationShown must be cleared here too, not just animationActor: applyAnimation()'s
+        // "already playing correctly" check compares against animationShown alone, and super.rebind()
+        // just dropped the actual Actor it refers to - leaving animationShown set would make the next
+        // doUpdate() (for whatever tile this got recycled to) wrongly think a *different* tile's
+        // now-gone animation is still live here, if that tile happens to want the same enum value.
+        animationActor = null
+        animationShown = null
+    }
+
 }

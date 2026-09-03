@@ -78,6 +78,14 @@ class TileLayerFeatures(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup
         updateRoadImages(viewingCiv)
     }
 
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops the road Images as owned actors
+        // roadImages is keyed by neighbor Tile - updateRoadImages() only ever visits *this* tile's
+        // current neighbors, so entries for the old tile's neighbors would otherwise never be
+        // revisited (or removed) again.
+        roadImages.clear()
+    }
+
     fun dim() {
         forEachOwnedActor { it.color.a = 0.5f }
     }

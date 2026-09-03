@@ -138,4 +138,14 @@ class TileLayerBorders(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
     override fun doUpdate(viewingCiv: CivView?) {
         updateBorders()
     }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops border segment Images as owned actors
+        // borderSegments is keyed by neighbor TileView - updateBorders() only ever visits *this*
+        // tile's current neighbors, so entries for the old tile's neighbors would otherwise never
+        // be revisited (or removed) again. previousTileOwner must go too: its only job is spotting
+        // an owner change on the *same* tile, which is meaningless once the tile itself changed.
+        borderSegments.clear()
+        previousTileOwner = null
+    }
 }

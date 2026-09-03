@@ -78,4 +78,13 @@ class TileLayerCityButton(tileGroup: TileGroup, size: Float) : TileLayer(tileGro
     override fun determineVisibility() {
         isVisible = cityButton != null
     }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops cityButtonWrapper as an owned actor
+        // doUpdate() only tears cityButton/cityButtonWrapper down when the *new* tile has no city -
+        // if the new tile happens to be a *different* city's center, it would otherwise keep
+        // displaying the old CityButton (wrapping the old CityView, positioned at the old tile).
+        cityButton = null
+        cityButtonWrapper = null
+    }
 }

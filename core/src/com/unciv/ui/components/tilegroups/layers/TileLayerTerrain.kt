@@ -129,7 +129,9 @@ class TileLayerTerrain(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
         var edgeFileNames: List<String> = emptyList()
     }
 
-    private val neighborEdgeDataList: Sequence<NeighborEdgeData> = tile.neighbors.map {
+    private var neighborEdgeDataList: Sequence<NeighborEdgeData> = computeNeighborEdgeDataList()
+
+    private fun computeNeighborEdgeDataList(): Sequence<NeighborEdgeData> = tile.neighbors.map {
             val clockPosition = tile.tileMap.getNeighborTileClockPosition(tile, it)
             val direction = NeighborDirection.byClockPosition[clockPosition]
             NeighborEdgeData(it, direction)
@@ -307,6 +309,16 @@ class TileLayerTerrain(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
     fun reset() {
         isVisible = false
         updateRivers(displayBottomRight = false, displayBottom = false, displayBottomLeft = false)
+    }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops tileBaseImages/river Images as owned actors
+        tileBaseImages.clear()
+        tileImageIdentifiers = emptyList() // otherwise updateTileImage() thinks the (now gone) images are still current
+        bottomRightRiverImage = null
+        bottomRiverImage = null
+        bottomLeftRiverImage = null
+        neighborEdgeDataList = computeNeighborEdgeDataList() // the old tile's neighbor set is meaningless here
     }
 
     private fun getNaturalWonderBackupImage(baseHexagon: ArrayList<String>): ArrayList<String> =

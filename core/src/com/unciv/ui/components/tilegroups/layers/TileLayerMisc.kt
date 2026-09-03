@@ -152,6 +152,13 @@ class TileLayerYield(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, s
     override fun determineVisibility() {
         isVisible = yields?.isVisible == true
     }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops the YieldGroup as an owned actor
+        // yields' initial Y position is only ever set at creation time (see getOrCreateYields) -
+        // keeping the old instance around would leave it positioned at the old tile.
+        yields = null
+    }
 }
 
 
@@ -243,6 +250,17 @@ class TileLayerResource(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup
     override fun determineVisibility() {
         isVisible = resourceIcon?.isVisible == true
     }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops resourceIcon/resourceProvidedIcon as owned actors
+        // Both icons are only (re)positioned at creation time - if the new tile happens to have the
+        // same resource name+amount, updateResourceIcon()'s change-detection would otherwise think
+        // the existing (now-removed, still-old-positioned) icon is still valid and never recreate it.
+        resourceName = null
+        resourceAmount = -1
+        resourceIcon = null
+        resourceProvidedIcon = null
+    }
 }
 
 class TileLayerImprovement(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, size){
@@ -328,6 +346,14 @@ class TileLayerImprovement(tileGroup: TileGroup, size: Float) : TileLayer(tileGr
 
     fun reset() {
         updateImprovementIcon(false)
+    }
+
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops improvementIcon as an owned actor
+        // Same reasoning as TileLayerResource.rebind: only (re)positioned at creation time.
+        improvementPlusPillagedID = null
+        improvementIcon = null
+        combatFlashShown = null
     }
 }
 
@@ -599,4 +625,19 @@ class TileLayerMisc(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, si
         clearArrows()
     }
 
+    override fun rebind(newTileX: Float, newTileY: Float) {
+        super.rebind(newTileX, newTileY) // drops all owned actors, including any still-queued arrows
+        // terrainOverlay/hexOutlineIcon/workedIcon are already re-derived every TileGroup.update()
+        // call regardless (see removeHexOutline()/hideTerrainOverlay() in TileGroup.update() and
+        // removeWorkedIcon() in WorldTileGroup.update()), so nulling them here is just keeping the
+        // fields honest a call earlier - but arrowsToDraw/arrows/startingLocationIcons are only
+        // ever touched from doUpdate(), so leaving stale entries here would render one frame of
+        // arrows meant for the old tile's neighbors before the next external resetArrows() pass.
+        terrainOverlay = null
+        hexOutlineIcon = null
+        workedIcon = null
+        arrowsToDraw.clear()
+        arrows.clear()
+        startingLocationIcons.clear()
+    }
 }

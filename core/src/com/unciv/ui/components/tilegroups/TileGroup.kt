@@ -79,6 +79,22 @@ open class TileGroup(
         layerTerrain.update(null)
     }
 
+    /**
+     * Repoints this [TileGroup] (and all 11 of its [TileLayer]s) at [newTileView] instead of the
+     * tile it currently represents, moving it to grid position ([x], [y]) and refreshing every
+     * layer for [viewingCiv] - all without reconstructing this [TileGroup] or any of its layers.
+     * This is what makes a fixed-size pool of [TileGroup]s reusable as a scrollable viewport's
+     * contents change, instead of needing one [TileGroup] per map tile permanently: see
+     * [TileLayer.rebind]'s doc for why [TileLayer.update]'s ordinary incremental diffing isn't
+     * safe to reuse for this by itself.
+     */
+    open fun rebind(newTileView: TileView, x: Float, y: Float, viewingCiv: CivView?) {
+        tileView = newTileView
+        setPosition(x, y)
+        for (layer in allLayers) layer.rebind(x, y)
+        update(viewingCiv)
+    }
+
     fun isViewable(viewingCiv: CivView) = isForceVisible
             || viewingCiv.canSeeTile(tileView)
             || viewingCiv.isSpectator()

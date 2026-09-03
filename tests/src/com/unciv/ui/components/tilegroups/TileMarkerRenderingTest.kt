@@ -68,6 +68,28 @@ class TileMarkerRenderingTest {
     }
 
     @Test
+    fun `a highlight survives its WorldTileGroup being recycled away and back`() {
+        val tileView = gameView.tileMapView.getTile(testGame.getTile(0, 0))
+        tileView.addMarker(TileMarker.ATTACKABLE)
+
+        val group = tileGroupFor(0, 0)
+        group.update(gameView.civView)
+        assertTrue(group.layerOverlay.isVisible)
+
+        // Recycled away to an unrelated, unmarked tile - standing in for what HexTileAdapter.onBindViewHolder
+        // does when a position scrolls off and a different one needs the same pooled slot.
+        val otherTile = testGame.tileMap.values.first { it.position != tileView.getTile().position }
+        group.rebind(gameView.tileMapView.getTile(otherTile), 0f, 0f, gameView.civView)
+        assertFalse("no marker on the tile it was recycled to", group.layerOverlay.isVisible)
+
+        // Recycled back - the marker is still on the *tile*, not the (long since wiped) WorldTileGroup,
+        // so it must reappear with no external "reapply" call needed.
+        group.rebind(tileView, 0f, 0f, gameView.civView)
+        assertTrue("the marker on tile (0,0) should still be there, and be picked up again on rebind",
+            group.layerOverlay.isVisible)
+    }
+
+    @Test
     fun `resetMarkers clears a highlight on the next update`() {
         val tileView = gameView.tileMapView.getTile(testGame.getTile(0, 0))
         tileView.addMarker(TileMarker.SELECTED)
@@ -79,6 +101,33 @@ class TileMarkerRenderingTest {
         group.update(gameView.civView)
 
         assertFalse(group.layerOverlay.isVisible)
+    }
+
+    @Test
+    fun `a one-shot animation survives its WorldTileGroup being recycled away and back mid-flight`() {
+        val tileView = gameView.tileMapView.getTile(testGame.getTile(0, 0))
+        tileView.playAnimation(TileSingleAnimation.NUKE_BLAST)
+
+        val group = tileGroupFor(0, 0)
+        group.update(gameView.civView)
+        assertTrue("the animation just started, well within its duration - should be showing",
+            group.layerOverlay.isVisible)
+
+        // Recycled away mid-flight to an unrelated tile with no animation of its own - standing in
+        // for what HexTileAdapter.onBindViewHolder does when a position scrolls off and a different
+        // one needs the same pooled slot, same as the marker test above.
+        val otherTile = testGame.tileMap.values.first { it.position != tileView.getTile().position }
+        group.rebind(gameView.tileMapView.getTile(otherTile), 0f, 0f, gameView.civView)
+        assertFalse("no animation on the tile it was recycled to", group.layerOverlay.isVisible)
+
+        // Recycled back before the animation's duration has elapsed - the (type, start time) is still
+        // on the *tile*, not the (long since wiped) WorldTileGroup, so playback must resume rather
+        // than staying dropped or restarting from scratch.
+        group.rebind(tileView, 0f, 0f, gameView.civView)
+        assertTrue("the animation on tile (0,0) hasn't finished yet, so it should resume on rebind",
+            group.layerOverlay.isVisible)
+        assertEquals("still playing, so TileView shouldn't have cleared it itself",
+            TileSingleAnimation.NUKE_BLAST, tileView.tileSingleAnimation)
     }
 
     @Test

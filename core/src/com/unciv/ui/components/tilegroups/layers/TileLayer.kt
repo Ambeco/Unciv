@@ -10,7 +10,10 @@ import com.unciv.ui.components.tilegroups.TileSetStrings
 
 abstract class TileLayer(val tileGroup: TileGroup, val size: Float) {
 
-    val tile: Tile get() = tileGroup.tileView.getTile()
+    /** Computed, not snapshotted: [TileGroup.rebind] reassigns [TileGroup.tileView] to point at a
+     *  different [Tile] without reconstructing this layer, so a stored `val` captured once at
+     *  construction would silently go stale - see [rebind] for the rest of what that requires. */
+    val tile: Tile get() = tileGroup.tile
     val strings: TileSetStrings = tileGroup.tileSetStrings
 
     /** Absolute X of the tile origin in the parent TileMapLayer. 0 until attachTo() is called. */
@@ -102,5 +105,28 @@ abstract class TileLayer(val tileGroup: TileGroup, val size: Float) {
             actor.y += y
             mapLayer.addActor(actor)
         }
+    }
+
+    /**
+     * Called by [TileGroup.rebind] when this layer's [TileGroup] is repointed at a different
+     * [Tile] - e.g. a pooled/recycling map holder reusing a fixed set of [TileGroup]s as the
+     * viewport scrolls, instead of constructing one per map tile. [doUpdate] alone is *not* safe
+     * for this: it's written to incrementally diff against the *previous* update of the *same*
+     * tile (only touching actors/fields that actually changed), which can't tell "this is a
+     * different tile now" apart from "nothing changed" - see the overrides of this method for the
+     * specific per-layer caches that would otherwise go stale (wrong neighbor set, wrong screen
+     * position, or simply never freed).
+     *
+     * The default here (unconditionally dropping every owned actor and moving to the new tile's
+     * position) is necessary but not sufficient on its own: any subclass with additional identity
+     * caches keyed by the *previous* tile or its neighbors (private fields tracking "current icon"
+     * or "current road image", HashMaps keyed by neighbor [Tile]/[com.unciv.view.TileView]) must
+     * override this to also clear those, or [doUpdate]'s diffing will treat the stale field as
+     * still valid and never refresh it.
+     */
+    internal open fun rebind(newTileX: Float, newTileY: Float) {
+        for (actor in ownedActors.toList()) removeOwnedActor(actor)
+        tileX = newTileX
+        tileY = newTileY
     }
 }
