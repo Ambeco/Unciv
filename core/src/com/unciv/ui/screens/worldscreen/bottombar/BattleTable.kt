@@ -1,13 +1,10 @@
 package com.unciv.ui.screens.worldscreen.bottombar
 
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.math.Interpolation
 import com.badlogic.gdx.scenes.scene2d.Touchable
-import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane
 import com.badlogic.gdx.scenes.scene2d.ui.Table
-import com.badlogic.gdx.utils.Align
 import com.unciv.logic.battle.AirInterception
 import com.unciv.logic.battle.AttackableTile
 import com.unciv.logic.battle.Battle
@@ -26,7 +23,6 @@ import com.unciv.ui.components.extensions.addBorderAllowOpacity
 import com.unciv.ui.components.extensions.addRoundCloseButton
 import com.unciv.ui.components.extensions.addSeparator
 import com.unciv.ui.components.extensions.disable
-import com.unciv.ui.components.extensions.setSize
 import com.unciv.ui.components.extensions.toLabel
 import com.unciv.ui.components.extensions.toTextButton
 import com.unciv.ui.components.fonts.Fonts
@@ -40,6 +36,7 @@ import com.unciv.ui.screens.worldscreen.WorldScreen
 import com.unciv.ui.screens.worldscreen.bottombar.BattleTableHelpers.battleAnimationDeferred
 import com.unciv.ui.screens.worldscreen.bottombar.BattleTableHelpers.getHealthBar
 import com.unciv.view.CombatantView
+import com.unciv.view.TileSingleAnimation
 import com.unciv.view.TileView
 import yairm210.purity.annotations.Readonly
 import kotlin.math.max
@@ -402,24 +399,12 @@ class BattleTable(val worldScreen: WorldScreen) : Table() {
             attackButton.onClick(attacker.getAttackSound()) {
                 Nuke.NUKE(attacker, targetTile)
 
-                val nukeCircle = ImageGetter.getCircle()
-                nukeCircle.setSize(10f)
-                nukeCircle.setOrigin(Align.center)
-                nukeCircle.addAction(Actions.sequence(
-                    Actions.fadeOut(0f),
-                    Actions.parallel(
-                        Actions.fadeIn(1f, Interpolation.pow2In),
-                        Actions.scaleTo(200f, 200f, 1f, Interpolation.linear),
-                    ),
-                    Actions.delay(1f),
-                    Actions.fadeOut(1f, Interpolation.pow2Out),
-                    Actions.removeActor()
-                    )
-                )
-                val targetTileGroup = worldScreen.mapHolder.tileGroups[worldScreen.selectedGameView.tileMapView.getTile(targetTile)]!!
-                nukeCircle.x = targetTileGroup.x
-                nukeCircle.y = targetTileGroup.y
-                worldScreen.mapHolder.addActorToTileGroupMap(nukeCircle)
+                // The blast circle itself is rendered by TileLayerOverlay, driven purely by this
+                // marker - see TileView.tileSingleAnimation's own doc for why that (rather than
+                // reaching into worldScreen.mapHolder for a WorldTileGroup/Actor directly, the way
+                // this used to) is what lets it keep playing correctly if the target tile scrolls
+                // out of a pooled implementation's view and back in mid-animation.
+                worldScreen.selectedGameView.tileMapView.getTile(targetTile).playAnimation(TileSingleAnimation.NUKE_BLAST)
 
                 worldScreen.mapHolder.removeUnitActionOverlay() // the overlay was one of attacking
                 worldScreen.shouldUpdate = true

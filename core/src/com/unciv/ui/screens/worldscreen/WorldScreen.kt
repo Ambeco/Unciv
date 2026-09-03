@@ -704,7 +704,7 @@ class WorldScreen(
             )
             bottomUnitTable.selectUnit(selectedGameView.getForeignMapUnitView(nextDueUnit).tryGetMapUnitView()!!)
         } else {
-            mapHolder.removeAction(mapHolder.blinkAction)
+            mapHolder.selectedTile?.clearAnimation() // stop the "look here" blink, if one's still playing
             mapHolder.selectedTile = null
             bottomUnitTable.selectUnit()
         }

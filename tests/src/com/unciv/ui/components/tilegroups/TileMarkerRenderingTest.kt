@@ -8,6 +8,8 @@ import com.unciv.ui.components.fonts.Fonts
 import com.unciv.ui.images.ImageGetter
 import com.unciv.view.GameView
 import com.unciv.view.TileMarker
+import com.unciv.view.TileSingleAnimation
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -77,5 +79,32 @@ class TileMarkerRenderingTest {
         group.update(gameView.civView)
 
         assertFalse(group.layerOverlay.isVisible)
+    }
+
+    @Test
+    fun `a one-shot animation is cleared once its duration has elapsed`() {
+        val tileView = gameView.tileMapView.getTile(testGame.getTile(0, 0))
+        tileView.playAnimation(TileSingleAnimation.NUKE_BLAST)
+
+        // Backdate the start time past the animation's own duration, rather than sleeping the test -
+        // playAnimation() always stamps "now", so there's no other way to simulate elapsed time.
+        val pastStart = System.currentTimeMillis() - (TileSingleAnimation.NUKE_BLAST.totalDurationSeconds * 1000).toLong() - 100L
+        setAnimationStartTime(tileView, pastStart)
+
+        val group = tileGroupFor(0, 0)
+        group.update(gameView.civView)
+
+        assertFalse("the animation's duration has fully elapsed - nothing should be showing",
+            group.layerOverlay.isVisible)
+        assertEquals("doUpdate() should have cleared it itself, with no external call needed",
+            null, tileView.tileSingleAnimation)
+    }
+
+    /** [com.unciv.view.TileView.tileSingleAnimationStartTime] is only ever set "to now" by
+     *  [com.unciv.view.TileView.playAnimation] - reflection is the only way to backdate it for a test. */
+    private fun setAnimationStartTime(tileView: com.unciv.view.TileView, timeMillis: Long) {
+        val field = tileView.javaClass.getDeclaredField("tileSingleAnimationStartTime")
+        field.isAccessible = true
+        field.setLong(tileView, timeMillis)
     }
 }

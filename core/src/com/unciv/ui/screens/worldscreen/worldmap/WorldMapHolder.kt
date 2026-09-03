@@ -24,6 +24,7 @@ import com.unciv.models.UncivSound
 import com.unciv.view.CivView
 import com.unciv.view.ForeignMapUnitView
 import com.unciv.view.MapUnitView
+import com.unciv.view.TileSingleAnimation
 import com.unciv.view.TileView
 import com.unciv.ui.audio.SoundPlayer
 import com.unciv.ui.components.MapArrowType
@@ -55,11 +56,16 @@ class WorldMapHolder(
     internal val tileMap: TileMap
 ) : ZoomableScrollPane(20f, 20f) {
     internal var selectedTile: TileView? = null
-    val tileGroups = HashMap<TileView, WorldTileGroup>()
 
-    /** Direct single-tile lookup - a narrower alternative to reaching into [tileGroups] directly,
-     *  for callers that only need one tile. */
-    fun tileGroupOf(tileView: TileView): WorldTileGroup? = tileGroups[tileView]
+    /** Every [WorldTileGroup] this holder has a live view for, keyed by tile - every tile in
+     *  [tileMap], permanently. Private: external callers only ever need [tileGroupOf] (a single-tile
+     *  lookup) or [forEachVisibleTileGroup] (bulk iteration), never a bare Map/Collection reference
+     *  they could hold onto or leak. */
+    private val tileGroupsByTileView = HashMap<TileView, WorldTileGroup>()
+
+    /** Direct single-tile lookup - see [tileGroupsByTileView]'s own doc for why this (and
+     *  [forEachVisibleTileGroup]) exist instead of exposing that Map directly. */
+    fun tileGroupOf(tileView: TileView): WorldTileGroup? = tileGroupsByTileView[tileView]
 
     /**
      * Resolves a scene-graph hit target ([addClickListener]'s `child`) back to the [WorldTileGroup]
@@ -68,11 +74,10 @@ class WorldMapHolder(
      */
     fun tileGroupOf(child: Actor): WorldTileGroup? = child as? WorldTileGroup
 
-    /** Invokes [op] once for every [TileGroup] this holder currently has a live view for - a
-     *  narrower alternative to reaching into [tileGroups] directly for callers that only need to
-     *  iterate, never hold onto the Map/Collection itself. */
+    /** Invokes [op] once for every [TileGroup] this holder currently has a live view for - see
+     *  [tileGroupOf] for a single lookup instead, which is what most callers actually need. */
     fun forEachVisibleTileGroup(op: (TileGroup) -> Unit) {
-        for (group in tileGroups.values) op(group)
+        for (group in tileGroupsByTileView.values) op(group)
     }
 
     /** Holds buttons created by [OverlayButtonData] implementations */
@@ -124,7 +129,7 @@ class WorldMapHolder(
         val tileGroupsNew = tileMap.values.map { WorldTileGroup(tileMapView.getTile(it), tileSetStrings) }
         tileGroupMap = TileGroupMap(this, tileGroupsNew, continuousScrollingX)
 
-        for (tileGroup in tileGroupsNew) tileGroups[tileGroup.tileView] = tileGroup
+        for (tileGroup in tileGroupsNew) tileGroupsByTileView[tileGroup.tileView] = tileGroup
 
         addClickListener()
 
@@ -615,13 +620,13 @@ class WorldMapHolder(
 
     /** Clear all arrows to be drawn on the next update. */
     fun resetArrows() {
-        for (tile in tileGroups.asSequence())
+        for (tile in tileGroupsByTileView.asSequence())
             tile.value.layerMisc.resetArrows()
     }
 
     /** Add an arrow to draw on the next update. */
     fun addArrow(fromTileView: TileView, toTileView: TileView, arrowType: MapArrowType) {
-        tileGroups[fromTileView]?.layerMisc?.addArrow(toTileView.getTile(), arrowType)
+        tileGroupsByTileView[fromTileView]?.layerMisc?.addArrow(toTileView.getTile(), arrowType)
     }
 
     /**
@@ -669,8 +674,6 @@ class WorldMapHolder(
     }
 
 
-    var blinkAction: Action? = null
-
     /** Scrolls the world map to specified coordinates.
      * @param vector Position to center on
      * @param immediately Do so without animation
@@ -678,7 +681,8 @@ class WorldMapHolder(
      * @return `true` if scroll position was changed, `false` otherwise
      */
     fun setCenterPosition(vector: HexCoord, immediately: Boolean = false, selectUnit: Boolean = true, forceSelectUnit: MapUnit? = null): Boolean {
-        val tileGroup = tileGroups.values.firstOrNull { it.tileView.position() == vector } ?: return false
+        val tile = tileMap.getOrNull(vector.x, vector.y) ?: return false
+        val tileGroup = tileGroupOf(worldScreen.selectedGameView.tileMapView.getTile(tile)) ?: return false
         selectedTile = tileGroup.tileView
         if (selectUnit || forceSelectUnit != null)
             worldScreen.bottomUnitTable.tileSelected(selectedTile!!, forceSelectUnit?.let { worldScreen.selectedGameView.getForeignMapUnitView(it).tryGetMapUnitView() })
@@ -687,14 +691,7 @@ class WorldMapHolder(
         if (!scrollTo(tileGroup.x + tileGroup.width / 2, maxY - (tileGroup.y + tileGroup.width / 2), immediately))
             return false
 
-        removeAction(blinkAction) // so we don't have multiple blinks at once
-        blinkAction = Actions.repeat(3, Actions.sequence(
-                Actions.run { tileGroup.layerOverlay.hideHighlight()},
-                Actions.delay(.3f),
-                Actions.run { tileGroup.layerOverlay.showHighlight()},
-                Actions.delay(.3f)
-        ))
-        addAction(blinkAction) // Don't set it on the group because it's an actionless group
+        tileGroup.tileView.playAnimation(TileSingleAnimation.SELECTION_BLINK) // "look here" flash
 
         worldScreen.shouldUpdate = true
         return true

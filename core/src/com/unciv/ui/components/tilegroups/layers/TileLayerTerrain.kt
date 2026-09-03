@@ -16,6 +16,15 @@ import kotlin.random.Random
 class TileLayerTerrain(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, size) {
 
     val tileBaseImages: ArrayList<Image> = ArrayList()
+
+    /** [Image.name] of every current [tileBaseImages] entry - the exact file each was rendered
+     *  from, including whichever random variant [updateTileImage] picked (`image.name` is set to
+     *  that specific location for exactly this reveal). Lets
+     *  [com.unciv.ui.screens.worldscreen.bottombar.TileInfoTable]'s
+     *  [com.unciv.utils.DebugUtils.SHOW_TILE_IMAGE_LOCATIONS] feature show this without needing the
+     *  [Image] Actors themselves. */
+    val tileBaseImageNames: List<String> get() = tileBaseImages.map { it.name }
+
     private var tileImageIdentifiers = listOf<String>()
     private var bottomRightRiverImage: Image? = null
     private var bottomRiverImage: Image? = null

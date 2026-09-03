@@ -41,7 +41,7 @@ class TileInfoTable(private val worldScreen: WorldScreen) : Table(BaseScreen.ski
             } ).padTop(5f).row()
             if (DebugUtils.VISIBLE_MAP) add(tileView.position().toPrettyString().toLabel()).colspan(2).pad(5f)
             if (DebugUtils.SHOW_TILE_IMAGE_LOCATIONS){
-                val imagesString = "Images: " + worldScreen.mapHolder.tileGroups[tileView]!!.layerTerrain.tileBaseImages.joinToString{"\n"+it.name}
+                val imagesString = "Images: " + worldScreen.mapHolder.tileGroupOf(tileView)!!.layerTerrain.tileBaseImageNames.joinToString{"\n"+it}
                 add(imagesString.toLabel())
             }
             

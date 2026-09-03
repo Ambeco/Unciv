@@ -5,7 +5,6 @@ import com.badlogic.gdx.math.Interpolation
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.actions.Actions
-import com.badlogic.gdx.scenes.scene2d.actions.FloatAction
 import com.badlogic.gdx.scenes.scene2d.actions.RelativeTemporalAction
 import com.badlogic.gdx.scenes.scene2d.actions.SequenceAction
 import com.badlogic.gdx.scenes.scene2d.actions.TemporalAction
@@ -26,8 +25,6 @@ import com.unciv.utils.Concurrency
 
 
 object BattleTableHelpers {
-    /** Duration of the red-tint transition, used once per direction */
-    private const val flashRedDuration = 0.2f
     /** Duration of the attacker displacement, used once per direction */
     private const val moveActorsDuration = 0.3f
     /** Max distance of the attacker displacement, in world coords */
@@ -40,19 +37,6 @@ object BattleTableHelpers {
     private const val damageLabelFontSize = 40
     /** Total distance a damage number label is displaced upwards during that time in world coords */
     private const val damageLabelDisplacement = 90f
-
-
-    class FlashRedAction(
-        start: Float, end: Float,
-        private val actorsToOriginalColors: Map<Actor, Color>
-    ) : FloatAction(start, end, flashRedDuration, Interpolation.sine) {
-        private fun updateRedPercent(percent: Float) {
-            for ((actor, color) in actorsToOriginalColors)
-                actor.color = color.cpy().lerp(Color.RED, start + percent * (end - start))
-        }
-
-        override fun update(percent: Float) = updateRedPercent(percent)
-    }
 
 
     class MoveActorsAction(
@@ -159,7 +143,7 @@ object BattleTableHelpers {
     ) {
         fun getMapActorsForCombatant(combatant: ICombatant): Sequence<Actor> =
             sequence {
-                val tileGroup = mapHolder.tileGroups[selectedGameView.tileMapView.getTile(combatant.getTile())]!!
+                val tileGroup = mapHolder.tileGroupOf(selectedGameView.tileMapView.getTile(combatant.getTile()))!!
                 if (combatant.isCity()) {
                     val icon = tileGroup.layerImprovement.improvementIcon
                     if (icon != null) yield (icon)
@@ -169,12 +153,14 @@ object BattleTableHelpers {
                 }
             }
 
-
-        val actorsToFlashRed =
-                sequence {
-                    if (damageToDefender != 0) yieldAll(getMapActorsForCombatant(defender))
-                    if (damageToAttacker != 0) yieldAll(getMapActorsForCombatant(attacker))
-                }.associateWith { it.color.cpy() }
+        // Unlike the movement/attack-frame-overlay animations below (still raw Actor manipulation,
+        // a follow-up), the red flash goes through TileView.playCombatFlash instead of capturing
+        // Actor references directly - see that function's own doc.
+        fun flashCombatant(combatant: ICombatant) {
+            val tileView = selectedGameView.tileMapView.getTile(combatant.getTile())
+            if (combatant.isCity()) tileView.playCombatFlash(null)
+            else if (!combatant.isAirUnit()) tileView.playCombatFlash((combatant as MapUnitCombatant).unit)
+        }
 
         val actorsToMove = getMapActorsForCombatant(attacker).toList()
 
@@ -183,8 +169,8 @@ object BattleTableHelpers {
             .nor()  // normalize vector to length of "1"
             .scl(moveActorsDisplacement)
 
-        val attackerGroup = mapHolder.tileGroups[selectedGameView.tileMapView.getTile(attacker.getTile())]!!
-        val defenderGroup = mapHolder.tileGroups[selectedGameView.tileMapView.getTile(defender.getTile())]!!
+        val attackerGroup = mapHolder.tileGroupOf(selectedGameView.tileMapView.getTile(attacker.getTile()))!!
+        val defenderGroup = mapHolder.tileGroupOf(selectedGameView.tileMapView.getTile(defender.getTile()))!!
         val hideDefenderDamage = defender.isDefeated() &&
                 attacker.getTile().position == defender.getTile().position
 
@@ -195,8 +181,11 @@ object BattleTableHelpers {
                     createDamageLabel(damageToAttacker, attackerGroup)
                     if (!hideDefenderDamage)
                         createDamageLabel(damageToDefender, defenderGroup)
+                    // While the unit is moving back to its normal position, we flash the damages on both units
+                    if (damageToDefender != 0) flashCombatant(defender)
+                    if (damageToAttacker != 0) flashCombatant(attacker)
                 },
-                Actions.parallel( // While the unit is moving back to its normal position, we flash the damages on both units
+                Actions.parallel(
                     MoveActorsAction(actorsToMove, attackVectorWorldCoords.cpy().scl(-1f)),
                     AttackAnimationAction(attacker,
                         if (damageToDefender != 0) getMapActorsForCombatant(defender).toList() else listOf(),
@@ -206,10 +195,6 @@ object BattleTableHelpers {
                         defender,
                         if (damageToAttacker != 0) getMapActorsForCombatant(attacker).toList() else listOf(),
                         mapHolder.currentTileSetStrings
-                    ),
-                    Actions.sequence(
-                        FlashRedAction(0f,1f, actorsToFlashRed),
-                        FlashRedAction(1f,0f, actorsToFlashRed)
                     )
                 )
         ))
