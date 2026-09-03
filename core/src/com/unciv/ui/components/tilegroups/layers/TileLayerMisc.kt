@@ -34,17 +34,49 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 private class MapArrow(val targetTile: Tile, val arrowType: MapArrowType, val strings: TileSetStrings) {
+    fun getImage(): Image = getImage(arrowType, strings)
+}
 
-    private fun getArrowImage(imageName: String) = ImageGetter.getImage(
+internal fun getImage(arrowType: MapArrowType, strings: TileSetStrings): Image {
+    fun image(imageName: String) = ImageGetter.getImage(
         strings.orFallback { getString(tileSetLocation, "Arrows/", imageName) })
-
-
-    fun getImage(): Image = when (arrowType) {
-        is UnitMovementMemoryType -> getArrowImage(arrowType.name)
-        is MiscArrowTypes -> getArrowImage(arrowType.name)
-        is TintedMapArrow -> getArrowImage("Generic").apply { color = arrowType.color }
-        else -> getArrowImage("Generic")
+    return when (arrowType) {
+        is UnitMovementMemoryType -> image(arrowType.name)
+        is MiscArrowTypes -> image(arrowType.name)
+        is TintedMapArrow -> image("Generic").apply { color = arrowType.color }
+        else -> image("Generic")
     }
+}
+
+/**
+ * Pure geometry for one arrow [Image]: sizes/positions/rotates it to point from [fromTile] toward
+ * [toTile], anchored at ([originX], [originY]) - [fromTile]'s own tile origin, in whatever
+ * coordinate space the caller's own parent Actor uses. [TileLayerMisc.updateArrows] calls this with
+ * a tile-local origin (the image ends up parented inside that tile's own layer wrapper, so (0,0) is
+ * that wrapper's own origin); [com.unciv.ui.screens.worldscreen.worldmap.RecyclerWorldMapHolder]'s
+ * arrow overlay calls it with an absolute on-screen origin instead, since an arrow's Actor there is
+ * never parented inside either endpoint tile's own wrapper at all - see that class's doc for why
+ * (a tile's own wrapper can be recycled out from under it mid-scroll; the arrow Actor's lifetime is
+ * deliberately independent of that). Doesn't touch [image]'s parenting/attachment, only its own
+ * transform, so either caller remains responsible for adding/removing it from the scene themselves.
+ */
+internal fun layoutArrowImage(image: Image, fromTile: Tile, toTile: Tile, originX: Float, originY: Float) {
+    val tileScale = 50f * 0.8f // See notes in updateRoadImages.
+    var targetPos = Vector2(toTile.position.toVector2())
+    if (fromTile.tileMap.mapParameters.worldWrap)
+        targetPos = HexMath.getUnwrappedNearestTo(targetPos.toHexCoord(), fromTile.position, fromTile.tileMap.maxLongitude)
+    val targetRelative = HexMath.hex2WorldCoords(targetPos.toHexCoord())
+        .sub(HexMath.hex2WorldCoords(fromTile.position))
+
+    val targetDistance = sqrt(targetRelative.x.pow(2) + targetRelative.y.pow(2))
+    val targetAngle = atan2(targetRelative.y, targetRelative.x)
+
+    image.touchable = Touchable.disabled
+    // Arrows originate at tile centre (25, -5 in tile-local); offset by the given origin for absolute.
+    image.setPosition(originX + 25f, originY - 5f)
+    image.setSize(tileScale * targetDistance, 60f)
+    image.setOrigin(0f, 30f)
+    image.rotation = targetAngle / Math.PI.toFloat() * 180
 }
 
 class TileLayerYield(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, size){
@@ -322,33 +354,16 @@ class TileLayerMisc(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, si
 
     private fun updateArrows() {
         clearArrows()
-        val tileScale = 50f * 0.8f // See notes in updateRoadImages.
-
         for (arrowToAdd in arrowsToDraw) {
             val targetTile = arrowToAdd.targetTile
-            var targetPos = Vector2(targetTile.position.toVector2())
-            if (tile.tileMap.mapParameters.worldWrap)
-                targetPos = HexMath.getUnwrappedNearestTo(targetPos.toHexCoord(),
-                    tile.position, tile.tileMap.maxLongitude)
-            val targetRelative = HexMath.hex2WorldCoords(targetPos.toHexCoord())
-                .sub(HexMath.hex2WorldCoords(tile.position))
-
-            val targetDistance = sqrt(targetRelative.x.pow(2) + targetRelative.y.pow(2))
-            val targetAngle = atan2(targetRelative.y, targetRelative.x)
-
-            if (targetTile !in arrows) {
-                arrows[targetTile] = ArrayList()
-            }
+            if (targetTile !in arrows) arrows[targetTile] = ArrayList()
 
             val arrowImage = arrowToAdd.getImage()
-            arrowImage.touchable = Touchable.disabled
-            // Arrows originate at tile centre (25, -5 in tile-local); offset by tile origin for absolute.
-            arrowImage.setPosition(tileX + 25f, tileY - 5f)
-
-            arrowImage.setSize(tileScale * targetDistance, 60f)
-            arrowImage.setOrigin(0f, 30f)
-
-            arrowImage.rotation = targetAngle / Math.PI.toFloat() * 180
+            // tileX/tileY is this arrow's own tile's origin, absolute within whatever this layer's
+            // parent is (a shared TileMapLayer for an ordinary attached tile, or a per-tile
+            // standaloneWrapper's own local (0,0) for a pooled/recycling caller - see TileLayer's own
+            // doc) - layoutArrowImage anchors the image there either way, tile-local.
+            layoutArrowImage(arrowImage, tile, targetTile, tileX, tileY)
 
             arrows[targetTile]!!.add(arrowImage)
             addOwnedActor(arrowImage)

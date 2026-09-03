@@ -80,6 +80,12 @@ class WorldMapHolder(
         for (group in tileGroupsByTileView.values) op(group)
     }
 
+    /** Tiles [addArrow] has queued an arrow onto since the last [resetArrows] - lets [resetArrows]
+     *  only touch tiles that actually might have arrows, instead of every live [tileGroupsByTileView]
+     *  entry (up to ~8000 tiles here) on every single call, the overwhelming majority of which never
+     *  have any arrows queued on a typical turn (a handful of moving/attacking units). */
+    private val tilesWithArrows = HashSet<TileView>()
+
     /** Holds buttons created by [OverlayButtonData] implementations */
     internal val unitActionOverlays: ArrayList<Actor> = ArrayList()
 
@@ -618,15 +624,20 @@ class WorldMapHolder(
             && viewingCiv.isDefeated()
     }
 
-    /** Clear all arrows to be drawn on the next update. */
+    /** Clear all arrows to be drawn on the next update. Uses [tilesWithArrows] rather than
+     *  sweeping every live [tileGroupsByTileView] entry - see that field's own doc for why that
+     *  matters specifically here. */
     fun resetArrows() {
-        for (tile in tileGroupsByTileView.asSequence())
-            tile.value.layerMisc.resetArrows()
+        for (tileView in tilesWithArrows)
+            tileGroupsByTileView[tileView]?.layerMisc?.resetArrows()
+        tilesWithArrows.clear()
     }
 
-    /** Add an arrow to draw on the next update. */
+    /** Add an arrow to draw on the next update. @see resetArrows */
     fun addArrow(fromTileView: TileView, toTileView: TileView, arrowType: MapArrowType) {
-        tileGroupsByTileView[fromTileView]?.layerMisc?.addArrow(toTileView.getTile(), arrowType)
+        val group = tileGroupsByTileView[fromTileView] ?: return
+        group.layerMisc.addArrow(toTileView.getTile(), arrowType)
+        tilesWithArrows.add(fromTileView)
     }
 
     /**
