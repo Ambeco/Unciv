@@ -3,6 +3,7 @@ package com.unciv.ui.components.tilegroups.layers
 import com.badlogic.gdx.scenes.scene2d.Group
 import com.badlogic.gdx.scenes.scene2d.Touchable
 import com.unciv.view.CivView
+import com.unciv.view.TileMarker
 import com.unciv.ui.components.tilegroups.citybutton.CityButton
 import com.unciv.ui.components.tilegroups.TileGroup
 import com.unciv.ui.components.tilegroups.WorldTileGroup
@@ -66,6 +67,12 @@ class TileLayerCityButton(tileGroup: TileGroup, size: Float) : TileLayer(tileGro
         }
 
         cityButton!!.update(DebugUtils.VISIBLE_MAP || isViewable(viewingCiv))
+
+        // Spy-selection view nudges every city button down (see WorldMapTileUpdater) - moveDown()
+        // is idempotent (CityButton.isButtonMoved guards it), so it's safe to call unconditionally
+        // here on every update while the marker's set; moving back up is still driven entirely by
+        // CityButton's own click/selection handling, unchanged.
+        if (tileGroup.tileView.hasMarker(TileMarker.SPY_DIM_MODE)) moveDown()
     }
 
     override fun determineVisibility() {

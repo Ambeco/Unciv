@@ -1,6 +1,5 @@
 package com.unciv.ui.screens.worldscreen.worldmap
 
-import com.badlogic.gdx.graphics.Color
 import com.unciv.UncivGame
 import com.unciv.logic.automation.unit.CityLocationTileRanker
 import com.unciv.logic.battle.AttackableTile
@@ -8,10 +7,33 @@ import com.unciv.logic.battle.TargetHelper
 import com.unciv.logic.city.City
 import com.unciv.models.Spy
 import com.unciv.models.ruleset.unique.UniqueType
-import com.unciv.ui.components.extensions.colorFromRGB
+import com.unciv.view.TileMarker
 import com.unciv.view.CivView
 import com.unciv.view.MapUnitView
 
+/**
+ * Every highlight/overlay this file computes is written as a [TileMarker] bit onto the relevant
+ * tile's [com.unciv.view.TileView] (via [com.unciv.view.TileView.addMarker]/
+ * [com.unciv.view.TileView.setSelectedUnitForFlag]) instead of being pushed directly into a
+ * [WorldTileGroup] the way this file used to. A [WorldTileGroup] can be recycled to a completely
+ * different tile at any time (see [com.unciv.ui.screens.worldscreen.worldmap.RecyclerWorldMapHolder]'s
+ * doc) - pushing a highlight directly into whichever one happens to be pooled for a tile *right now*
+ * would silently vanish the moment that tile scrolls off and back on, with nothing to ever redraw it
+ * short of the next unrelated `updateTiles` pass (the exact bug arrow overlays had - see
+ * [ArrowLifecycle]'s doc - before that was fixed the same way). A [com.unciv.view.TileView] is never
+ * recycled, so markers set here are automatically picked up the instant a tile (re)binds, whether or
+ * not it happened to be pooled when they were set - see [TileMarker]'s own doc for the full list and
+ * [com.unciv.ui.components.tilegroups.layers.TileLayer] subclasses' `doUpdate()` overrides for where
+ * they're actually read back and rendered.
+ *
+ * A consequence: functions here now operate over every tile in [WorldMapHolder.tileMap] for anything
+ * that isn't curated to a specific handful of tiles (e.g. [updateTilesForSelectedUnit]'s dim-population
+ * pass, [updateTilesForSelectedSpy]'s per-tile loop) - previously bounded to whatever
+ * [WorldMapHolder.forEachVisibleTileGroup] currently covers (only the pooled subset, for
+ * [RecyclerWorldMapHolder]), matching what [EagerWorldMapHolder] (whose pool already covers every
+ * tile) already paid regardless. This only runs on a discrete UI event (a unit/city/spy gets
+ * selected), never a per-frame hot path.
+ */
 object WorldMapTileUpdater {
 
     private val WorldMapHolder.tileMapView get() = worldScreen.selectedGameView.tileMapView
@@ -21,14 +43,15 @@ object WorldMapTileUpdater {
 
         if (isMapRevealEnabled(civView)) {
             // Only needs to be done once - this is so the minimap will also be revealed
-            tileGroups.values.forEach {
+            forEachVisibleTileGroup {
                 it.tile.setExplored(viewingCiv, true)
                 it.isForceVisible = true } // So we can see all resources, regardless of tech
         }
 
-        // General update of all tiles
-        for (tileGroup in tileGroups.values)
-            tileGroup.update(civView)
+        // Recompute every tile's current UI markers *before* the general per-tile update pass below -
+        // each tile's own update() (via its layers' doUpdate()) is what actually reads and renders
+        // them, so they need to already be current by the time that runs - see this object's own doc.
+        tileMapView.resetMarkers()
 
         // Update tiles according to selected unit/city
         val unitTable = worldScreen.bottomUnitTable
@@ -54,47 +77,47 @@ object WorldMapTileUpdater {
             }
         }
 
-        // Same as below - randomly, tileGroups doesn't seem to contain the selected tile, and this doesn't seem reproducible
-        tileGroups[selectedTile]?.layerOverlay?.showHighlight(Color.WHITE)
+        // Applied last - highest priority, wins over anything else set on the same tile (see
+        // TileLayerOverlay.applyMarkers's own doc).
+        selectedTile?.addMarker(TileMarker.SELECTED)
+
+        // General update of all tiles - reads back the markers just computed above.
+        forEachVisibleTileGroup { it.update(civView) }
 
         zoom(scaleX) // zoom to current scale, to set the size of the city buttons after "next turn"
     }
 
     private fun WorldMapHolder.updateTilesForSelectedUnit(unitView: MapUnitView) {
-        val tileGroup = tileGroups[unitView.getTile()] ?: return
-
         // Update flags for units which have them
         if (!unitView.isAirUnit()) {
-            tileGroup.layerUnitFlag.selectFlag(unitView.getUnit())
+            unitView.getTile().setSelectedUnitForFlag(unitView.getUnit())
         }
 
         // Fade out less relevant images if a military unit is selected
         if (unitView.isMilitary()) {
             val unit = unitView.getUnit()
-            for (group in tileGroups.values) {
+            for (tile in tileMap.tileList) {
+                val tileView = tileMapView.getTile(tile)
 
                 // Fade out population icons
-                group.layerMisc.dimPopulation(true)
+                tileView.addMarker(TileMarker.DIM_POPULATION)
 
-                val shownImprovementName = group.tile.getShownImprovement(unit.civ)
+                val shownImprovementName = tile.getShownImprovement(unit.civ)
                 val shownImprovement = unit.civ.gameInfo.ruleset.tileImprovements[shownImprovementName]
 
                 // Fade out improvement icons (but not barb camps or ruins)
                 if (shownImprovement != null &&
-                    !shownImprovement.isBarbarianCampEquivalent(group.tile.stateThisTile) &&
+                    !shownImprovement.isBarbarianCampEquivalent(tile.stateThisTile) &&
                     !shownImprovement.isAncientRuinsEquivalent(unit.cache.state))
-                    group.layerImprovement.dimImprovement(true)
+                    tileView.addMarker(TileMarker.DIM_IMPROVEMENT)
             }
         }
 
         // Z-Layer: 0
         // Highlight suitable tiles in swapping-mode
         if (worldScreen.bottomUnitTable.selectedUnitIsSwapping) {
-            val swapUnitsTileOverlayColor = Color.PURPLE
-            for (tileView in unitView.getUnitSwappableTiles())  {
-                tileGroups[tileView]!!.layerOverlay.showHighlight(swapUnitsTileOverlayColor,
-                    if (UncivGame.Current.settings.singleTapMove) 0.7f else 0.3f)
-            }
+            for (tileView in unitView.getUnitSwappableTiles())
+                tileView.addMarker(TileMarker.SWAP_TARGET)
             // In swapping-mode we don't want to show other overlays
             return
         }
@@ -103,15 +126,12 @@ object WorldMapTileUpdater {
         // Highlight suitable tiles in road connecting mode
         if (worldScreen.bottomUnitTable.selectedUnitIsConnectingRoad) {
             if (!unitView.rulesetHasRoadImprovement()) return
-            val connectRoadTileOverlayColor = Color.RED
-            for (tileView in unitView.getValidRoadConnectionTiles())  {
-                tileGroups[tileView]!!.layerOverlay.showHighlight(connectRoadTileOverlayColor, 0.3f)
-            }
+            for (tileView in unitView.getValidRoadConnectionTiles())
+                tileView.addMarker(TileMarker.ROAD_CONNECT_VALID)
 
             if (unitConnectRoadPaths.containsKey(unitView)) {
-                for (tileView in unitConnectRoadPaths[unitView]!!) {
-                    tileGroups[tileView]!!.layerOverlay.showHighlight(Color.ORANGE, 0.8f)
-                }
+                for (tileView in unitConnectRoadPaths[unitView]!!)
+                    tileView.addMarker(TileMarker.ROAD_CONNECT_PATH)
             }
 
             // In road connecting mode we don't want to show other overlays
@@ -119,7 +139,6 @@ object WorldMapTileUpdater {
         }
 
         val isAirUnit = unitView.isAirUnit()
-        val moveTileOverlayColor = if (unitView.isPreparingParadrop()) Color.BLUE else Color.WHITE
         val tilesInMoveRange = unitView.getReachableTilesInCurrentTurn()
         // Prepare special Nuke blast radius display
         val nukeBlastRadius = if (unitView.isNuclearWeapon() && selectedTile != null && selectedTile != unitView.getTile())
@@ -128,19 +147,17 @@ object WorldMapTileUpdater {
         // Z-Layer: 1
         // Highlight tiles within movement range
         for (tileView in tilesInMoveRange) {
-            val group = tileGroups[tileView]!!
-
             // Air-units have additional highlights
             if (isAirUnit && !unitView.isPreparingAirSweep()) {
                 if (nukeBlastRadius >= 0 && tileView.aerialDistanceTo(selectedTile!!) <= nukeBlastRadius) {
                     // The tile is within the nuke blast radius
-                    group.layerMisc.overlayTerrain(Color.FIREBRICK, 0.6f)
+                    tileView.addMarker(TileMarker.AIR_NUKE_BLAST)
                 } else if (tileView.aerialDistanceTo(unitView.getTile()) <= unitView.getRange()) {
                     // The tile is within attack range
-                    group.layerMisc.overlayTerrain(Color.RED)
+                    tileView.addMarker(TileMarker.AIR_ATTACK_RANGE)
                 } else if (unitView.isExplored(tileView) && tileView.aerialDistanceTo(unitView.getTile()) <= unitView.getRange()*2) {
                     // The tile is within move range
-                    group.layerMisc.overlayTerrain(if (unitView.canMoveTo(tileView)) Color.WHITE else Color.BLUE)
+                    tileView.addMarker(if (unitView.canMoveTo(tileView)) TileMarker.AIR_MOVE_RANGE_OK else TileMarker.AIR_MOVE_RANGE_BLOCKED)
                 }
             }
 
@@ -148,14 +165,9 @@ object WorldMapTileUpdater {
             if (unitView.canMoveTo(tileView) ||
                 unitView.isUnknownTileWeShouldAssumeToBePassable(tileView) && !isAirUnit
             ) {
-                if (UncivGame.Current.settings.useCirclesToIndicateMovableTiles) {
-                    val alpha = if (UncivGame.Current.settings.singleTapMove) 0.7f else 0.3f
-                    group.layerOverlay.showHighlight(moveTileOverlayColor, alpha)
-                }
-
-                else group.layerMisc.overlayTerrain(moveTileOverlayColor, 0.4f)
+                tileView.addMarker(TileMarker.MOVABLE_TO)
+                if (unitView.isPreparingParadrop()) tileView.addMarker(TileMarker.MOVABLE_TO_PARADROP)
             }
-
         }
 
         // Z-Layer: 2
@@ -163,7 +175,7 @@ object WorldMapTileUpdater {
         if (unitView.cannotMove() && isAirUnit && !unitView.isPreparingAirSweep()) {
             for (tileView in unitView.getTilesInAttackRange()) {
                 // The tile is within attack range
-                tileGroups[tileView]!!.layerOverlay.showHighlight(Color.RED, 0.3f)
+                tileView.addMarker(TileMarker.AIR_ATTACK_ONLY)
             }
         }
 
@@ -171,7 +183,7 @@ object WorldMapTileUpdater {
         // Movement paths
         if (unitMovementPaths.containsKey(unitView)) {
             for (tileView in unitMovementPaths[unitView]!!) {
-                tileGroups[tileView]!!.layerOverlay.showHighlight(Color.SKY, 0.8f)
+                tileView.addMarker(TileMarker.MOVEMENT_PATH)
             }
         }
 
@@ -180,14 +192,14 @@ object WorldMapTileUpdater {
         if (unitView.isAutomatingRoadConnection()) {
             val futureTiles = unitView.getFutureAutomatedRoadConnectionTiles() ?: return
             for (tileView in futureTiles) {
-                tileGroups[tileView]!!.layerOverlay.showHighlight(Color.ORANGE, if (UncivGame.Current.settings.singleTapMove) 0.7f else 0.3f)
+                tileView.addMarker(TileMarker.ROAD_AUTOMATION_FUTURE)
             }
         }
 
         // Z-Layer: 5
         // Highlight movement destination tile
         if (unitView.isMoving()) {
-            tileGroups[unitView.getMovementDestination()]!!.layerOverlay.showHighlight(Color.WHITE, 0.7f)
+            unitView.getMovementDestination().addMarker(TileMarker.MOVEMENT_DESTINATION)
         }
 
         // Z-Layer: 6
@@ -208,16 +220,13 @@ object WorldMapTileUpdater {
                     .distinctBy { it.tileToAttack }
 
             for (attackableTile in attackableTiles) {
-                val tileGroupToAttack = tileGroups[tileMapView.getTile(attackableTile.tileToAttack)]!!
-                tileGroupToAttack.layerOverlay.showHighlight(colorFromRGB(237, 41, 57))
-                tileGroupToAttack.layerOverlay.showCrosshair(
-                    // the targets which cannot be attacked without movements shown as orange-ish
-                    if (attackableTile.tileToAttackFrom != unit.currentTile)
-                        0.5f
-                    else 1f
-                )
+                val tileViewToAttack = tileMapView.getTile(attackableTile.tileToAttack)
+                tileViewToAttack.addMarker(TileMarker.ATTACKABLE)
+                // the targets which cannot be attacked without movements shown as orange-ish
+                if (attackableTile.tileToAttackFrom != unit.currentTile)
+                    tileViewToAttack.addMarker(TileMarker.ATTACKABLE_NEEDS_MOVE)
                 if (attackableTile.tileToAttack == selectedTile?.getTile())
-                    tileGroups[tileMapView.getTile(attackableTile.tileToAttackFrom)]!!.layerOverlay.showHighlight(Color.SKY, 0.7f)
+                    tileMapView.getTile(attackableTile.tileToAttackFrom).addMarker(TileMarker.ATTACK_SOURCE)
             }
         }
 
@@ -228,31 +237,32 @@ object WorldMapTileUpdater {
             val unit = unitView.getUnit()
             CityLocationTileRanker.getBestTilesToFoundCity(unit, 5, minimumValue = 50f).tileRankMap.asSequence()
                 .filter { it.key.isExplored(unit.civ) }.sortedByDescending { it.value }.take(3).forEach {
-                    tileGroups[tileMapView.getTile(it.key)]!!.layerOverlay.showGoodCityLocationIndicator()
+                    tileMapView.getTile(it.key).addMarker(TileMarker.SUGGESTED_CITY_SITE)
                 }
         }
     }
 
     private fun WorldMapHolder.updateTilesForSelectedSpy(spy: Spy) {
-        for (group in tileGroups.values) {
-            group.layerOverlay.reset()
-            if (!group.tile.isCityCenter())
-                group.layerImprovement.dimImprovement(true)
-            group.layerCityButton.moveDown()
+        for (tile in tileMap.tileList) {
+            val tileView = tileMapView.getTile(tile)
+            // Every tile's own highlight/crosshair/good-city-location-indicator is already reset by
+            // resetMarkers() (nothing here sets any of those markers), matching the old
+            // layerOverlay.reset() call this replaces.
+            if (!tile.isCityCenter())
+                tileView.addMarker(TileMarker.DIM_IMPROVEMENT)
+            tileView.addMarker(TileMarker.SPY_DIM_MODE)
         }
         for (city in worldScreen.gameInfo.getCities()) {
             if (spy.canMoveTo(city)) {
-                tileGroups[tileMapView.getTile(city.getCenterTile())]!!.layerOverlay.showHighlight(Color.CYAN, .7f)
+                tileMapView.getTile(city.getCenterTile()).addMarker(TileMarker.SPY_TARGET_CITY)
             }
         }
     }
 
     private fun WorldMapHolder.updateBombardableTilesForSelectedCity(city: City) {
         if (!city.canBombard()) return
-        for (tileView in TargetHelper.getBombardableTiles(city).map { tileMapView.getTile(it) }) {
-            val group = tileGroups[tileView]!!
-            group.layerOverlay.showHighlight(colorFromRGB(237, 41, 57))
-            group.layerOverlay.showCrosshair()
+        for (tile in TargetHelper.getBombardableTiles(city)) {
+            tileMapView.getTile(tile).addMarker(TileMarker.BOMBARDABLE)
         }
     }
 }

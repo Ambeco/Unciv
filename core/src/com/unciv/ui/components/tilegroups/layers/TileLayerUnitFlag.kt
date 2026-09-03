@@ -125,6 +125,11 @@ class TileLayerUnitFlag(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup
                 highlightRed()
         }
 
+        // Has to run after fillSlots - that unconditionally recreates both icon slots, which would
+        // otherwise immediately lose whatever selectUnit() just set (see WorldMapTileUpdater, which
+        // sets TileView.selectedUnitForFlag instead of calling this directly, precisely so it
+        // survives a tile scrolling out and back in - see TileView.markers' own doc for why).
+        tileGroup.tileView.selectedUnitForFlag?.let { selectFlag(it) }
     }
 
     fun reset() {

@@ -8,6 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.utils.Align
 import com.unciv.UncivGame
 import com.unciv.view.CivView
+import com.unciv.view.TileMarker
 import com.unciv.logic.map.HexMath
 import com.unciv.logic.map.tile.Tile
 import com.unciv.logic.map.toHexCoord
@@ -214,6 +215,10 @@ class TileLayerImprovement(tileGroup: TileGroup, size: Float) : TileLayer(tileGr
             UncivGame.Current.settings.showResourcesAndImprovements else true
 
         updateImprovementIcon(showResourcesAndImprovements)
+        // markers is only ever set for a WorldTileGroup's tileView (see WorldMapTileUpdater) - stays
+        // 0 (hasMarker always false) for any other context this layer is used in, e.g. Civilopedia/
+        // the map editor/CityScreen, so this is a harmless no-op there, matching today's behavior.
+        dimImprovement(tileGroup.tileView.hasMarker(TileMarker.DIM_IMPROVEMENT))
     }
 
     fun dimImprovement(dim: Boolean) { improvementIcon?.color?.a = if (dim) 0.5f else 1f }
@@ -490,13 +495,40 @@ class TileLayerMisc(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, si
         arrowsToDraw.clear()
     }
 
+    /** Not called from [doUpdate] - [dimPopulation] has to run *after* [WorldTileGroup.update]'s own
+     *  `updateWorkedIcon` (which unconditionally recreates [workedIcon] at full alpha), or a fresh
+     *  icon would immediately clobber whatever this just set - see [WorldTileGroup.update]'s own
+     *  call to this. */
     fun dimPopulation(dim: Boolean) { workedIcon?.color?.a = if (dim) 0.4f else 1f }
 
+    /**
+     * Resolves [TileView.markers] into this tile's current terrain-tint overlay - the [TileMarker.MOVABLE_TO]
+     * branch only applies when [com.unciv.models.metadata.GameSettings.useCirclesToIndicateMovableTiles]
+     * is off (see [TileLayerOverlay.applyMarkers]'s own doc for the other half of that split), checked
+     * *before* the air-range flags to match the pre-marker code's apply order: the plain movable-to
+     * overlay was applied strictly after (so overrides, on any tile where both apply) the air-specific
+     * one, in the original sequential `showHighlight`/`overlayTerrain` calls this replaces.
+     */
+    private fun applyTerrainOverlayMarkers() {
+        val tileView = tileGroup.tileView
+        if (!UncivGame.Current.settings.useCirclesToIndicateMovableTiles && tileView.hasMarker(TileMarker.MOVABLE_TO)) {
+            val color = if (tileView.hasMarker(TileMarker.MOVABLE_TO_PARADROP)) Color.BLUE else Color.WHITE
+            overlayTerrain(color, 0.4f)
+            return
+        }
+        when {
+            tileView.hasMarker(TileMarker.AIR_NUKE_BLAST) -> overlayTerrain(Color.FIREBRICK, 0.6f)
+            tileView.hasMarker(TileMarker.AIR_ATTACK_RANGE) -> overlayTerrain(Color.RED)
+            tileView.hasMarker(TileMarker.AIR_MOVE_RANGE_OK) -> overlayTerrain(Color.WHITE)
+            tileView.hasMarker(TileMarker.AIR_MOVE_RANGE_BLOCKED) -> overlayTerrain(Color.BLUE)
+        }
+    }
 
     override fun doUpdate(viewingCiv: CivView?) {
         if (tileGroup !is WorldTileGroup || DebugUtils.SHOW_TILE_COORDS || DebugUtils.SHOW_SETTLER_SCORES)
             updateStartingLocationIcon(true)
         updateArrows()
+        applyTerrainOverlayMarkers()
     }
 
     override fun determineVisibility() {
