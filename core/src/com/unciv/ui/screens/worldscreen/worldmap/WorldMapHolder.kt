@@ -57,6 +57,24 @@ class WorldMapHolder(
     internal var selectedTile: TileView? = null
     val tileGroups = HashMap<TileView, WorldTileGroup>()
 
+    /** Direct single-tile lookup - a narrower alternative to reaching into [tileGroups] directly,
+     *  for callers that only need one tile. */
+    fun tileGroupOf(tileView: TileView): WorldTileGroup? = tileGroups[tileView]
+
+    /**
+     * Resolves a scene-graph hit target ([addClickListener]'s `child`) back to the [WorldTileGroup]
+     * it belongs to, if any - a plain type check, since every tile actor here *is* its own hit
+     * target.
+     */
+    fun tileGroupOf(child: Actor): WorldTileGroup? = child as? WorldTileGroup
+
+    /** Invokes [op] once for every [TileGroup] this holder currently has a live view for - a
+     *  narrower alternative to reaching into [tileGroups] directly for callers that only need to
+     *  iterate, never hold onto the Map/Collection itself. */
+    fun forEachVisibleTileGroup(op: (TileGroup) -> Unit) {
+        for (group in tileGroups.values) op(group)
+    }
+
     /** Holds buttons created by [OverlayButtonData] implementations */
     internal val unitActionOverlays: ArrayList<Actor> = ArrayList()
 
@@ -125,16 +143,15 @@ class WorldMapHolder(
                     onTileClicked(child.foreignCityView.getCenterTile())
                     return
                 }
-                if (child is WorldTileGroup) {
-                    Concurrency.runOnGLThread("Sound") { SoundPlayer.play(UncivSound.Click) }
+                val tileGroup = tileGroupOf(child) ?: return
+                Concurrency.runOnGLThread("Sound") { SoundPlayer.play(UncivSound.Click) }
 
-                    if (button == 0) onTileClicked(child.tileView) // Regular click
-                    else if (button == 1) { // Right button click = move unit to tile
-                        if (!UncivGame.Current.settings.longTapMove) return
-                        val unit = worldScreen.bottomUnitTable.selectedUnit
-                            ?: return
-                        onTileRightClicked(unit, child.tileView)
-                    }
+                if (button == 0) onTileClicked(tileGroup.tileView) // Regular click
+                else if (button == 1) { // Right button click = move unit to tile
+                    if (!UncivGame.Current.settings.longTapMove) return
+                    val unit = worldScreen.bottomUnitTable.selectedUnit
+                        ?: return
+                    onTileRightClicked(unit, tileGroup.tileView)
                 }
             }
 
@@ -178,7 +195,7 @@ class WorldMapHolder(
         val newSelectedUnit = unitTable.selectedUnit
 
         if (previousSelectedCity != null && tileView != previousSelectedCity.getCenterTile() && !movingSpyOnMap)
-            tileGroups[previousSelectedCity.getCenterTile()]!!.layerCityButton.moveUp()
+            tileGroupOf(previousSelectedCity.getCenterTile())!!.layerCityButton.moveUp()
 
         if (previousSelectedUnitViews.isNotEmpty()) {
             val isTileDifferent = previousSelectedUnitViews.any { it.getTile() != tileView }
@@ -375,7 +392,7 @@ class WorldMapHolder(
         targetTileView: TileView,
         pathToTile: List<TileView>
     ) {
-        val tileGroup = tileGroups[previousTileView]!!
+        val tileGroup = tileGroupOf(previousTileView)!!
 
         // Steal the current sprites to our new group
         val unitSpriteAndIcon = Group().apply { setPosition(tileGroup.x, tileGroup.y) }
@@ -383,7 +400,7 @@ class WorldMapHolder(
 
         for (spriteImage in unitSpriteSlot.spriteGroup.children.toList()) // toList because actors added remove themselves from previous parent
             unitSpriteAndIcon.addActor(spriteImage)
-        tileGroupMap.addActor(unitSpriteAndIcon)
+        addActorToTileGroupMap(unitSpriteAndIcon)
 
 
 
@@ -392,19 +409,20 @@ class WorldMapHolder(
                 Actions.run {
                     // Disable the final tile, so we won't have one image "merging into" the other
                     // Can only be done after the new group has been updated, to get the spriteGroup
-                    val targetTileSpriteSlot = tileGroups[targetTileView]!!.layerUnitArt.getSpriteSlot(selectedUnit.getUnit())
+                    val targetTileSpriteSlot = tileGroupOf(targetTileView)!!.layerUnitArt.getSpriteSlot(selectedUnit.getUnit())
                     targetTileSpriteSlot?.spriteGroup?.isVisible = false
                 },
                 *pathToTile.map { tileView ->
+                    val stepTileGroup = tileGroupOf(tileView)!!
                     Actions.moveTo(
-                        tileGroups[tileView]!!.x,
-                        tileGroups[tileView]!!.y,
+                        stepTileGroup.x,
+                        stepTileGroup.y,
                         0.5f / pathToTile.size
                     )
                 }.toTypedArray(),
                 Actions.run {
                     // Re-enable the final tile
-                    val targetTileSpriteSlot = tileGroups[targetTileView]!!.layerUnitArt.getSpriteSlot(selectedUnit.getUnit())
+                    val targetTileSpriteSlot = tileGroupOf(targetTileView)!!.layerUnitArt.getSpriteSlot(selectedUnit.getUnit())
                     targetTileSpriteSlot?.spriteGroup?.isVisible = true
                     worldScreen.shouldUpdate = true
                 },
@@ -560,7 +578,7 @@ class WorldMapHolder(
             table.add(unitIconGroup)
         }
 
-        addOverlayOnTileGroup(tileGroups[tileView]!!, table)
+        addOverlayOnTileGroup(tileGroupOf(tileView)!!, table)
         if (UncivGame.Current.settings.unitMovementButtonAnimation) {
             table.color.a = 0f
             table.addAction(Actions.moveBy(0f, 48f, 0.15f, Interpolation.smooth))
@@ -578,7 +596,7 @@ class WorldMapHolder(
         actor.center(group)
         actor.x += group.x
         actor.y += group.y
-        tileGroupMap.addActor(actor) // Add directly to TileGroupMap so toFront() places it above all layer groups
+        addActorToTileGroupMap(actor) // Add directly to the map content so toFront() places it above all layer groups
         actor.toFront()
 
         actor.y += actor.height
@@ -684,19 +702,20 @@ class WorldMapHolder(
 
     override fun zoom(zoomScale: Float) {
         super.zoom(zoomScale)
-        clampCityButtonSize()
+        onZoomed()
     }
 
-    /** We don't want the city buttons becoming too large when zooming out */
-    private fun clampCityButtonSize() {
+    /** Called whenever [zoom] changes the current zoom level. We don't want the city buttons
+     *  becoming too large when zooming out. */
+    private fun onZoomed() {
         // use scaleX instead of zoomScale itself, because zoomScale might have been outside minZoom..maxZoom and thus not applied
         val clampedCityButtonZoom = 1 / scaleX
         if (clampedCityButtonZoom >= 1) {
-            for (tileGroup in tileGroups.values) {
+            forEachVisibleTileGroup { tileGroup ->
                 tileGroup.layerCityButton.setButtonTransform(false) // save rendering time at normal zoom
             }
         } else if (clampedCityButtonZoom >= minZoom) {
-            for (tileGroup in tileGroups.values) {
+            forEachVisibleTileGroup { tileGroup ->
                 // ONLY set those groups that have active city buttons as transformable!
                 // This is massively framerate-improving!
                 if (tileGroup.layerCityButton.hasButton())

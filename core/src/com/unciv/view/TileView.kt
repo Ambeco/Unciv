@@ -21,6 +21,45 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
                viewer: Civilization?,
                spectatorMode: Boolean = false) : View<Tile>(tile, viewer, spectatorMode) {
 
+    /**
+     * Bitmask of [TileMarker] flags - transient UI decoration state (current selection highlights,
+     * overlays, dimming, city-button state, etc.), computed fresh by
+     * [com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater] on every relevant game/UI
+     * event and read directly by each concerned
+     * [com.unciv.ui.components.tilegroups.layers.TileLayer]'s own `doUpdate()` (the same call every
+     * bind/rebind already makes for ordinary tile content like terrain or resources).
+     *
+     * Deliberately stored here rather than pushed into whichever [com.unciv.ui.components.tilegroups.WorldTileGroup]
+     * happens to be pooled for this tile *right now*: a pooled group can be recycled to a completely
+     * different tile at any time, silently dropping anything pushed directly onto it, with nothing to
+     * ever redraw it short of the next unrelated full-update pass - the exact bug arrow overlays had
+     * (see [com.unciv.ui.screens.worldscreen.worldmap.ArrowLifecycle]'s doc) before this. A [TileView]
+     * is never "recycled" - it's the same instance for a given [Tile] for as long as [tileMapView]
+     * lives (see [TileMapView.getTile]'s caching) - so markers set here are automatically picked up
+     * the instant a tile (re)binds, whether or not it happened to be pooled when they were set.
+     *
+     * Only ever mutated via [addMarker]/[TileMapView.resetMarkers] - never assigned directly - so
+     * [TileMapView] can track which tiles actually have a marker set (see
+     * [TileMapView.resetMarkers]'s own doc for why that matters).
+     */
+    var markers: Int = 0
+        internal set
+
+    fun hasMarker(flag: Int) = markers and flag != 0
+
+    /** Sets [flag] on this tile's [markers] - see that property's own doc. */
+    fun addMarker(flag: Int) = tileMapView.addMarker(this, flag)
+
+    /** The [MapUnit] whose flag icon should currently render as "selected" on this tile - not
+     *  itself a [TileMarker] bit, since it needs an actual [MapUnit] reference rather than a plain
+     *  boolean, but tracked/reset alongside [markers] all the same - see
+     *  [TileMapView.resetMarkers]. */
+    var selectedUnitForFlag: MapUnit? = null
+        internal set
+
+    /** Sets [unit] as this tile's [selectedUnitForFlag] - see that property's own doc. */
+    fun setSelectedUnitForFlag(unit: MapUnit?) = tileMapView.setSelectedUnitForFlag(this, unit)
+
     // Navigation
     @Readonly fun getTile(): Tile = tile
     @Readonly fun getCivView(): CivView? = tileMapView.gameView?.civView
