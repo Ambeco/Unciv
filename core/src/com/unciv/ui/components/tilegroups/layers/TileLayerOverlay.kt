@@ -1,16 +1,17 @@
 package com.unciv.ui.components.tilegroups.layers
 
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.math.Interpolation
-import com.badlogic.gdx.scenes.scene2d.Action
 import com.badlogic.gdx.scenes.scene2d.Touchable
-import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.utils.Align
 import com.unciv.UncivGame
 import com.unciv.view.CivView
+import com.unciv.view.CombatFlashRed
+import com.unciv.view.NukeBlast
+import com.unciv.view.SelectionBlink
 import com.unciv.view.TileMarker
 import com.unciv.view.TileSingleAnimation
+import com.unciv.view.TileView
 import com.unciv.ui.components.extensions.colorFromRGB
 import com.unciv.ui.components.extensions.setSize
 import com.unciv.ui.components.tilegroups.TileGroup
@@ -24,13 +25,13 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
     private var fog: Image? = null
     private var unexplored: Image? = null
 
-    /** The Actor currently rendering [TileView.tileSingleAnimation], if any - see [applyAnimation]. */
+    /** The Actor currently rendering [TileView.playingAnimation], if any - see [applyAnimation]. */
     private var animationActor: Image? = null
-    /** Which [TileSingleAnimation] [animationActor] was last (re)created for - lets [applyAnimation]
-     *  tell "already playing correctly, leave its own Action alone" apart from "just started/resumed,
-     *  needs (re)creating" without comparing Actors. Must be reset alongside [animationActor] on
-     *  [rebind] - see that override's own comment. */
-    private var animationShown: TileSingleAnimation? = null
+    /** Which [TileView.PlayingAnimation] [animationActor] was last (re)created for - lets
+     *  [applyAnimation] tell "already the right Actor for the right instance, leave it alone" apart
+     *  from "just started/resumed/changed, needs (re)creating" without comparing Actors. Must be
+     *  reset alongside [animationActor] on [rebind] - see that override's own comment. */
+    private var animationActorFor: TileView.PlayingAnimation? = null
 
     private fun getHighlight() = ImageGetter.getImage(strings.highlight).setHexagonSize()
     private fun getCrosshair() = ImageGetter.getImage(strings.crosshair).setHexagonSize()
@@ -160,149 +161,68 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
     }
 
     /**
-     * Resolves [TileView.tileSingleAnimation]/[TileView.tileSingleAnimationStartTime] into
-     * [animationActor] - see [TileView.tileSingleAnimation]'s own doc for the resume-mid-flight
-     * model this implements. Three cases:
-     * - No animation set (or it's [TileSingleAnimation.COMBAT_FLASH_RED], which tints an *existing*
-     *   Actor via [TileLayerUnitSprite]/[TileLayerImprovement] instead of owning a dedicated one
-     *   here - see [TileView.combatFlashUnit]'s own doc): make sure nothing's showing.
+     * Resolves [TileView.playingAnimation] into [animationActor] - see that property's own doc for
+     * the resume-mid-flight model this implements. Three cases:
+     * - No animation set (or it's [CombatFlashRed], which tints an *existing* Actor via
+     *   [TileLayerUnitSprite]/[TileLayerImprovement] instead of owning a dedicated one here - see
+     *   [TileView.combatFlashUnit]'s own doc): make sure nothing's showing.
      * - Elapsed time is past the animation's own duration: it's finished - clear
-     *   [TileView.tileSingleAnimation] (nothing else does, for the animations actually reaching this
+     *   [TileView.playingAnimation] (nothing else does, for the animations actually reaching this
      *   point) and remove whatever's showing.
-     * - Otherwise: if [animationActor] is already showing *this* animation, leave it alone - its own
-     *   [Actions] keep it animating every frame regardless of how many more times [doUpdate] runs
-     *   before it finishes. Only (re)create it - seeded to the correct in-progress state for the
-     *   current elapsed time, with an Action covering only the remaining duration - when it's
-     *   genuinely new or was just dropped by a [rebind] mid-flight.
+     * - Otherwise: (re)create [animationActor] if it isn't already the right kind for the right
+     *   instance (a genuinely new animation, or a different one, since the last call - not just
+     *   [rebind] dropping it), then delegate the actual visual seeding to
+     *   [TileSingleAnimation.animateOnce] - which is itself safe to call every time [doUpdate] runs,
+     *   not just once.
      */
     private fun applyAnimation() {
         val tileView = tileGroup.tileView
-        val animation = tileView.tileSingleAnimation
-        if (animation == null || animation == TileSingleAnimation.COMBAT_FLASH_RED) {
+        val playing = tileView.playingAnimation
+        if (playing == null || playing.animation == CombatFlashRed) {
             clearAnimationActor()
             return
         }
-        val elapsedSeconds = (System.currentTimeMillis() - tileView.tileSingleAnimationStartTime) / 1000f
-        if (elapsedSeconds >= animation.totalDurationSeconds) {
+        val elapsedSeconds = (System.currentTimeMillis() - playing.startTimeMillis) / 1000f
+        if (elapsedSeconds >= playing.animation.totalDurationSeconds) {
             tileView.clearAnimation()
             clearAnimationActor()
             return
         }
-        if (animationShown == animation) return
-        clearAnimationActor()
-        animationActor = buildAnimationActor(animation, elapsedSeconds).also { addOwnedActor(it) }
-        animationShown = animation
-        determineVisibility()
+        if (animationActorFor != playing) {
+            clearAnimationActor()
+            animationActor = createAnimationActor(playing.animation).also { addOwnedActor(it) }
+            animationActorFor = playing
+            determineVisibility()
+        }
+        playing.animation.animateOnce(animationActor!!, elapsedSeconds)
     }
 
     private fun clearAnimationActor() {
         animationActor?.let { removeOwnedActor(it) }
-        if (animationActor != null || animationShown != null) determineVisibility()
+        if (animationActor != null) determineVisibility()
         animationActor = null
-        animationShown = null
+        animationActorFor = null
     }
 
-    private fun buildAnimationActor(animation: TileSingleAnimation, elapsedSeconds: Float): Image = when (animation) {
-        TileSingleAnimation.NUKE_BLAST -> buildNukeBlastActor(elapsedSeconds)
-        TileSingleAnimation.SELECTION_BLINK -> buildSelectionBlinkActor(elapsedSeconds)
-        TileSingleAnimation.COMBAT_FLASH_RED -> error(
-            "COMBAT_FLASH_RED is rendered by TileLayerUnitSprite/TileLayerImprovement, not " +
-                "TileLayerOverlay - applyAnimation() should never reach here for it")
-    }
-
-    /**
-     * A circle that blooms outward and fades in (1s), holds (1s), then fades out (1s) - matches the
-     * animation `BattleTable.simulateNuke` used to build inline as a one-off Actor. [elapsedSeconds]
-     * may be anywhere in that 3s window (not just 0, if this is resuming after a [rebind]) - the
-     * `when` below seeds the image to the exact in-progress state for whichever phase that falls in,
-     * then attaches an Action for only what's left of the animation from there. Splitting the
-     * interpolation like this (rather than e.g. `Actions.delay(elapsedSeconds)` then the original
-     * from-scratch sequence) is what makes a resume after scrolling back in look continuous instead
-     * of restarting or jumping.
-     */
-    private fun buildNukeBlastActor(elapsedSeconds: Float): Image {
-        val fadeInDuration = 1f
-        val holdDuration = 1f
-        val fadeOutDuration = 1f
-        val maxScale = 200f
-
-        val image = ImageGetter.getCircle()
-        image.touchable = Touchable.disabled
-        image.setSize(10f)
-        image.setOrigin(Align.center)
-        image.setPosition(tileX, tileY)
-
-        when {
-            elapsedSeconds < fadeInDuration -> {
-                val progress = elapsedSeconds / fadeInDuration
-                image.color.a = Interpolation.pow2In.apply(progress)
-                image.setScale(1f + (maxScale - 1f) * progress)
-                image.addAction(Actions.sequence(
-                    Actions.parallel(
-                        Actions.fadeIn(fadeInDuration - elapsedSeconds, Interpolation.pow2In),
-                        Actions.scaleTo(maxScale, maxScale, fadeInDuration - elapsedSeconds, Interpolation.linear)
-                    ),
-                    Actions.delay(holdDuration),
-                    Actions.fadeOut(fadeOutDuration, Interpolation.pow2Out)
-                ))
-            }
-            elapsedSeconds < fadeInDuration + holdDuration -> {
-                image.color.a = 1f
-                image.setScale(maxScale)
-                image.addAction(Actions.sequence(
-                    Actions.delay(fadeInDuration + holdDuration - elapsedSeconds),
-                    Actions.fadeOut(fadeOutDuration, Interpolation.pow2Out)
-                ))
-            }
-            else -> {
-                val progress = (elapsedSeconds - fadeInDuration - holdDuration) / fadeOutDuration
-                image.color.a = (1f - Interpolation.pow2Out.apply(progress)).coerceIn(0f, 1f)
-                image.setScale(maxScale)
-                val remaining = fadeInDuration + holdDuration + fadeOutDuration - elapsedSeconds
-                if (remaining > 0f) image.addAction(Actions.fadeOut(remaining, Interpolation.pow2Out))
-            }
+    /** Creates the (unseeded, unpositioned-beyond-this-tile's-origin) Actor [applyAnimation] hands to
+     *  [TileSingleAnimation.animateOnce] - the specific *kind* of Actor (a plain circle for
+     *  [NukeBlast], a tileset-skinned highlight hexagon for [SelectionBlink]) depends on tileset
+     *  resources ([strings]) only a [TileLayer] has access to, which is why this can't just live
+     *  inside the animation implementations themselves. */
+    private fun createAnimationActor(animation: TileSingleAnimation): Image = when (animation) {
+        NukeBlast -> ImageGetter.getCircle().apply {
+            touchable = Touchable.disabled
+            setSize(10f)
+            setOrigin(Align.center)
+            setPosition(tileX, tileY)
         }
-        return image
-    }
-
-    /**
-     * A standalone highlight-shaped Image that blinks hidden/shown three times - the "look here"
-     * flash [com.unciv.ui.screens.worldscreen.worldmap.WorldMapHolder.setCenterPosition] plays on
-     * whatever tile it just centered the view on. Deliberately its own Image rather than toggling
-     * [highlight] itself (which [applyMarkers] already manages independently, e.g. for
-     * [TileMarker.SELECTED], and would otherwise fight this over the same Image's visibility) - see
-     * [buildNukeBlastActor]'s own doc for why [elapsedSeconds] needs seeding into the right phase
-     * here too, rather than restarting from scratch after a [rebind].
-     */
-    private fun buildSelectionBlinkActor(elapsedSeconds: Float): Image {
-        val halfCycle = 0.3f // hidden for one halfCycle, then shown for the next - matches the
-                              // pre-TileSingleAnimation Actions.repeat(3, sequence(delay(.3f)...)) this replaces
-
-        val image = getHighlight()
-        image.touchable = Touchable.disabled
-
-        val cycleIndex = (elapsedSeconds / (halfCycle * 2)).toInt()
-        val positionInCycle = elapsedSeconds - cycleIndex * halfCycle * 2
-        val remainingFullCycles = 2 - cycleIndex // 0..2 more full hidden/shown pairs after this one
-
-        val sequence = mutableListOf<Action>()
-        if (positionInCycle < halfCycle) {
-            image.isVisible = false
-            sequence += Actions.delay(halfCycle - positionInCycle)
-            sequence += Actions.run { image.isVisible = true }
-            sequence += Actions.delay(halfCycle)
-        } else {
-            image.isVisible = true
-            sequence += Actions.delay(halfCycle * 2 - positionInCycle)
+        SelectionBlink -> getHighlight().apply {
+            // Deliberately its own Image rather than toggling [highlight] itself (which
+            // [applyMarkers] already manages independently, e.g. for [TileMarker.SELECTED], and
+            // would otherwise fight this over the same Image's visibility).
+            touchable = Touchable.disabled
         }
-        repeat(remainingFullCycles) {
-            sequence += Actions.run { image.isVisible = false }
-            sequence += Actions.delay(halfCycle)
-            sequence += Actions.run { image.isVisible = true }
-            sequence += Actions.delay(halfCycle)
-        }
-        image.addAction(Actions.sequence(*sequence.toTypedArray()))
-        return image
+        else -> error("$animation doesn't own a dedicated Actor - TileLayerUnitSprite/TileLayerImprovement render it instead")
     }
 
     fun setUnexplored(viewingCiv: CivView) {

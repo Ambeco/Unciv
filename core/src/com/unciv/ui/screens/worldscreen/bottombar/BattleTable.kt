@@ -36,7 +36,7 @@ import com.unciv.ui.screens.worldscreen.WorldScreen
 import com.unciv.ui.screens.worldscreen.bottombar.BattleTableHelpers.battleAnimationDeferred
 import com.unciv.ui.screens.worldscreen.bottombar.BattleTableHelpers.getHealthBar
 import com.unciv.view.CombatantView
-import com.unciv.view.TileSingleAnimation
+import com.unciv.view.NukeBlast
 import com.unciv.view.TileView
 import yairm210.purity.annotations.Readonly
 import kotlin.math.max
@@ -400,11 +400,11 @@ class BattleTable(val worldScreen: WorldScreen) : Table() {
                 Nuke.NUKE(attacker, targetTile)
 
                 // The blast circle itself is rendered by TileLayerOverlay, driven purely by this
-                // marker - see TileView.tileSingleAnimation's own doc for why that (rather than
+                // marker - see TileView.playingAnimation's own doc for why that (rather than
                 // reaching into worldScreen.mapHolder for a WorldTileGroup/Actor directly, the way
                 // this used to) is what lets it keep playing correctly if the target tile scrolls
                 // out of a pooled implementation's view and back in mid-animation.
-                worldScreen.selectedGameView.tileMapView.getTile(targetTile).playAnimation(TileSingleAnimation.NUKE_BLAST)
+                worldScreen.selectedGameView.tileMapView.getTile(targetTile).playAnimation(NukeBlast)
 
                 worldScreen.mapHolder.removeUnitActionOverlay() // the overlay was one of attacking
                 worldScreen.shouldUpdate = true

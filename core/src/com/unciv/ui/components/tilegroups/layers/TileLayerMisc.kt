@@ -1,17 +1,15 @@
 package com.unciv.ui.components.tilegroups.layers
 
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.math.Interpolation
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.Touchable
-import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.utils.Align
 import com.unciv.UncivGame
 import com.unciv.view.CivView
+import com.unciv.view.CombatFlashRed
 import com.unciv.view.TileMarker
-import com.unciv.view.TileSingleAnimation
 import com.unciv.logic.map.HexMath
 import com.unciv.logic.map.tile.Tile
 import com.unciv.logic.map.toHexCoord
@@ -259,34 +257,19 @@ class TileLayerImprovement(tileGroup: TileGroup, size: Float) : TileLayer(tileGr
 
     fun dimImprovement(dim: Boolean) { improvementIcon?.color?.a = if (dim) 0.5f else 1f }
 
-    /** Which [TileSingleAnimation] this layer last attached its own flash [Actions] for - see
-     *  [TileLayerUnitSprite]'s own `combatFlashShown` doc, this is the same thing for
-     *  [improvementIcon]. */
-    private var combatFlashShown: TileSingleAnimation? = null
-
     /** @see TileLayerUnitSprite.applyCombatFlash */
     private fun applyCombatFlash() {
         val tileView = tileGroup.tileView
-        if (tileView.tileSingleAnimation != TileSingleAnimation.COMBAT_FLASH_RED) {
-            combatFlashShown = null
-            return
-        }
+        val playing = tileView.playingAnimation
+        if (playing == null || playing.animation != CombatFlashRed) return
         if (tileView.combatFlashUnit != null) return // targets TileLayerUnitSprite's sprite instead - not us
-        val elapsedSeconds = (System.currentTimeMillis() - tileView.tileSingleAnimationStartTime) / 1000f
-        if (elapsedSeconds >= TileSingleAnimation.COMBAT_FLASH_RED.totalDurationSeconds) {
+        val elapsedSeconds = (System.currentTimeMillis() - playing.startTimeMillis) / 1000f
+        if (elapsedSeconds >= playing.animation.totalDurationSeconds) {
             tileView.clearAnimation()
-            combatFlashShown = null
             return
         }
-        if (combatFlashShown == TileSingleAnimation.COMBAT_FLASH_RED) return // already flashing
         val icon = improvementIcon ?: return
-        val halfDuration = TileSingleAnimation.COMBAT_FLASH_RED.totalDurationSeconds / 2
-        val originalColor = icon.color.cpy()
-        icon.addAction(Actions.sequence(
-            Actions.color(Color.RED, halfDuration, Interpolation.sine),
-            Actions.color(originalColor, halfDuration, Interpolation.sine)
-        ))
-        combatFlashShown = TileSingleAnimation.COMBAT_FLASH_RED
+        CombatFlashRed.animateOnce(icon, elapsedSeconds)
     }
 
     private fun updateImprovementIcon(show: Boolean) {
@@ -544,10 +527,6 @@ class TileLayerMisc(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, si
         arrowsToDraw.clear()
     }
 
-    /** Not called from [doUpdate] - [dimPopulation] has to run *after* [WorldTileGroup.update]'s own
-     *  `updateWorkedIcon` (which unconditionally recreates [workedIcon] at full alpha), or a fresh
-     *  icon would immediately clobber whatever this just set - see [WorldTileGroup.update]'s own
-     *  call to this. */
     fun dimPopulation(dim: Boolean) { workedIcon?.color?.a = if (dim) 0.4f else 1f }
 
     /**

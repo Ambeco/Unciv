@@ -60,6 +60,11 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
     /** Sets [unit] as this tile's [selectedUnitForFlag] - see that property's own doc. */
     fun setSelectedUnitForFlag(unit: MapUnit?) = tileMapView.setSelectedUnitForFlag(this, unit)
 
+    /** Pairs a [TileSingleAnimation] with the real time ([System.currentTimeMillis]) it started -
+     *  see [TileView.playingAnimation]'s own doc for why these two are bundled into one property
+     *  instead of living as two separate ones a reader could see out of sync. */
+    data class PlayingAnimation(val animation: TileSingleAnimation, val startTimeMillis: Long)
+
     /**
      * Which one-shot animation (if any) is currently playing on this tile, and when it started -
      * see [playAnimation]. Unlike [markers] (persistent "current state", recomputed fresh and
@@ -72,46 +77,43 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
      * once there's no longer a next unit to look at). Nothing *else* should call it - doing so would
      * kill an unrelated in-progress animation early.
      *
-     * Storing (type, start time) rather than a bare "is playing" flag is what lets the animation
-     * resume correctly mid-flight if this tile scrolls out of a pooled implementation's view and
-     * back in before it finishes: the renderer recomputes "what should this look like right now"
-     * purely from elapsed real time on every (re)bind, rather than needing some Actor/Action to have
-     * stayed alive continuously - the same problem (and the same fix) [markers] has for persistent
-     * highlights, just edge- rather than level-triggered.
+     * Storing (animation, start time) rather than a bare "is playing" flag is what lets the
+     * animation resume correctly mid-flight if this tile scrolls out of a pooled implementation's
+     * view and back in before it finishes: the renderer recomputes "what should this look like right
+     * now" purely from elapsed real time on every (re)bind, rather than needing some Actor/Action to
+     * have stayed alive continuously - the same problem (and the same fix) [markers] has for
+     * persistent highlights, just edge- rather than level-triggered.
      */
-    var tileSingleAnimation: TileSingleAnimation? = null
-        private set
-    var tileSingleAnimationStartTime: Long = 0L
+    var playingAnimation: PlayingAnimation? = null
         private set
 
     /** Which of [TileLayerUnitSprite][com.unciv.ui.components.tilegroups.layers.TileLayerUnitSprite]'s
-     *  two slots [TileSingleAnimation.COMBAT_FLASH_RED] should flash, or `null` to flash
+     *  two slots [CombatFlashRed] should flash, or `null` to flash
      *  [TileLayerImprovement][com.unciv.ui.components.tilegroups.layers.TileLayerImprovement]'s icon
-     *  instead (the combatant was a city, not a unit) - set alongside [tileSingleAnimation] by
+     *  instead (the combatant was a city, not a unit) - set alongside [playingAnimation] by
      *  [playCombatFlash], since a bare "this tile has a flash" flag can't say which of a tile's
      *  several possible Actors (a stacked civilian *and* military unit, or a city's improvement
      *  icon) it actually targets. */
     var combatFlashUnit: MapUnit? = null
         private set
 
-    /** Starts [type] playing on this tile, from now - see [tileSingleAnimation]'s own doc. */
-    fun playAnimation(type: TileSingleAnimation) {
-        tileSingleAnimation = type
-        tileSingleAnimationStartTime = System.currentTimeMillis()
+    /** Starts [animation] playing on this tile, from now - see [playingAnimation]'s own doc. */
+    fun playAnimation(animation: TileSingleAnimation) {
+        playingAnimation = PlayingAnimation(animation, System.currentTimeMillis())
     }
 
-    /** Starts [TileSingleAnimation.COMBAT_FLASH_RED] on this tile, targeting [unit]'s own sprite
-     *  slot - or this tile's improvement icon, if [unit] is `null` (the combatant was a city) - see
-     *  [combatFlashUnit]'s own doc. */
+    /** Starts [CombatFlashRed] on this tile, targeting [unit]'s own sprite slot - or this tile's
+     *  improvement icon, if [unit] is `null` (the combatant was a city) - see [combatFlashUnit]'s
+     *  own doc. */
     fun playCombatFlash(unit: MapUnit?) {
-        playAnimation(TileSingleAnimation.COMBAT_FLASH_RED)
+        playAnimation(CombatFlashRed)
         combatFlashUnit = unit
     }
 
-    /** Stops whatever [tileSingleAnimation] is currently playing, whether because it finished
+    /** Stops whatever [playingAnimation] is currently playing, whether because it finished
      *  naturally or because a caller wants to cancel it early - see that property's own doc. */
     fun clearAnimation() {
-        tileSingleAnimation = null
+        playingAnimation = null
     }
 
     // Navigation

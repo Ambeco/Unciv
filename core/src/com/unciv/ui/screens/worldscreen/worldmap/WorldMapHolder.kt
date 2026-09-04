@@ -24,7 +24,7 @@ import com.unciv.models.UncivSound
 import com.unciv.view.CivView
 import com.unciv.view.ForeignMapUnitView
 import com.unciv.view.MapUnitView
-import com.unciv.view.TileSingleAnimation
+import com.unciv.view.SelectionBlink
 import com.unciv.view.TileView
 import com.unciv.ui.audio.SoundPlayer
 import com.unciv.ui.components.MapArrowType
@@ -702,7 +702,7 @@ class WorldMapHolder(
         if (!scrollTo(tileGroup.x + tileGroup.width / 2, maxY - (tileGroup.y + tileGroup.width / 2), immediately))
             return false
 
-        tileGroup.tileView.playAnimation(TileSingleAnimation.SELECTION_BLINK) // "look here" flash
+        tileGroup.tileView.playAnimation(SelectionBlink) // "look here" flash
 
         worldScreen.shouldUpdate = true
         return true

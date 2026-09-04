@@ -11,29 +11,9 @@ import com.unciv.view.TileMarker
 import com.unciv.view.CivView
 import com.unciv.view.MapUnitView
 
-/**
- * Every highlight/overlay this file computes is written as a [TileMarker] bit onto the relevant
- * tile's [com.unciv.view.TileView] (via [com.unciv.view.TileView.addMarker]/
- * [com.unciv.view.TileView.setSelectedUnitForFlag]) instead of being pushed directly into a
- * [WorldTileGroup] the way this file used to. A [WorldTileGroup] can be recycled to a completely
- * different tile at any time (see [com.unciv.ui.screens.worldscreen.worldmap.RecyclerWorldMapHolder]'s
- * doc) - pushing a highlight directly into whichever one happens to be pooled for a tile *right now*
- * would silently vanish the moment that tile scrolls off and back on, with nothing to ever redraw it
- * short of the next unrelated `updateTiles` pass (the exact bug arrow overlays had - see
- * [ArrowLifecycle]'s doc - before that was fixed the same way). A [com.unciv.view.TileView] is never
- * recycled, so markers set here are automatically picked up the instant a tile (re)binds, whether or
- * not it happened to be pooled when they were set - see [TileMarker]'s own doc for the full list and
- * [com.unciv.ui.components.tilegroups.layers.TileLayer] subclasses' `doUpdate()` overrides for where
- * they're actually read back and rendered.
- *
- * A consequence: functions here now operate over every tile in [WorldMapHolder.tileMap] for anything
- * that isn't curated to a specific handful of tiles (e.g. [updateTilesForSelectedUnit]'s dim-population
- * pass, [updateTilesForSelectedSpy]'s per-tile loop) - previously bounded to whatever
- * [WorldMapHolder.forEachVisibleTileGroup] currently covers (only the pooled subset, for
- * [RecyclerWorldMapHolder]), matching what [EagerWorldMapHolder] (whose pool already covers every
- * tile) already paid regardless. This only runs on a discrete UI event (a unit/city/spy gets
- * selected), never a per-frame hot path.
- */
+// Every highlight/overlay here is written as a TileMarker bit onto the tile's TileView instead of
+// pushed directly into a WorldTileGroup - see TileMarker's own doc for why. One consequence: most
+// functions below now iterate every tile in tileMap, not just the pooled/visible subset.
 object WorldMapTileUpdater {
 
     private val WorldMapHolder.tileMapView get() = worldScreen.selectedGameView.tileMapView

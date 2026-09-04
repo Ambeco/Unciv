@@ -1,10 +1,8 @@
 package com.unciv.ui.components.tilegroups.layers
 
-import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.math.Interpolation
-import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.unciv.UncivGame
 import com.unciv.view.CivView
+import com.unciv.view.CombatFlashRed
 import com.unciv.view.ForeignMapUnitView
 import com.unciv.view.TileSingleAnimation
 import com.unciv.logic.map.mapunit.MapUnit
@@ -75,48 +73,26 @@ class TileLayerUnitSprite(tileGroup: TileGroup, size: Float) : TileLayer(tileGro
         forEachOwnedActor { it.color.a = 0.5f }
     }
 
-    /** Which [TileSingleAnimation] this layer last attached its own flash [Actions] for - lets
-     *  [applyCombatFlash] tell "already flashing, its own Actions keep running" apart from "just
-     *  started, needs attaching" without comparing Actors. Cleared on [rebind] for the same reason
-     *  [TileLayerOverlay]'s own `animationShown` is - a freshly-bound tile's slots are brand new
-     *  Actors regardless of what this field says. */
-    private var combatFlashShown: TileSingleAnimation? = null
-
     /**
-     * [TileSingleAnimation.COMBAT_FLASH_RED] doesn't build a dedicated owned Actor the way
-     * [TileLayerOverlay]'s animations do - it tints whichever sprite slot [TileView.combatFlashUnit]
-     * names, since that's an *existing* Actor this layer already owns, not a new one - so, unlike
-     * [TileLayerOverlay], this layer is the one responsible for clearing [TileView.tileSingleAnimation]
-     * once elapsed time is past [TileSingleAnimation.totalDurationSeconds], for the one animation type
-     * it actually renders. No resume-mid-flight seeding (contrast [TileLayerOverlay]'s
-     * `buildNukeBlastActor`): at 0.4s total, a tile scrolling out of a pooled implementation's view
-     * and back in mid-flash is negligible, so this always (re)plays the flash from its current actual
-     * color rather than computing where a precise resume would be.
+     * [CombatFlashRed] doesn't build a dedicated owned Actor the way [TileLayerOverlay]'s animations
+     * do - it tints whichever sprite slot [TileView.combatFlashUnit] names, since that's an
+     * *existing* Actor this layer already owns, not a new one - so, unlike [TileLayerOverlay], this
+     * layer is the one responsible for clearing [TileView.playingAnimation] once elapsed time is past
+     * [TileSingleAnimation.totalDurationSeconds], for the one animation type it actually renders.
      */
     private fun applyCombatFlash() {
         val tileView = tileGroup.tileView
-        if (tileView.tileSingleAnimation != TileSingleAnimation.COMBAT_FLASH_RED) {
-            combatFlashShown = null
-            return
-        }
+        val playing = tileView.playingAnimation
+        if (playing == null || playing.animation != CombatFlashRed) return
         val unit = tileView.combatFlashUnit ?: return // targets TileLayerImprovement's icon instead - not us
-        val elapsedSeconds = (System.currentTimeMillis() - tileView.tileSingleAnimationStartTime) / 1000f
-        if (elapsedSeconds >= TileSingleAnimation.COMBAT_FLASH_RED.totalDurationSeconds) {
+        val elapsedSeconds = (System.currentTimeMillis() - playing.startTimeMillis) / 1000f
+        if (elapsedSeconds >= playing.animation.totalDurationSeconds) {
             tileView.clearAnimation()
-            combatFlashShown = null
             return
         }
-        if (combatFlashShown == TileSingleAnimation.COMBAT_FLASH_RED) return // already flashing
         val slot = getSpriteSlot(unit) ?: return
-        val halfDuration = TileSingleAnimation.COMBAT_FLASH_RED.totalDurationSeconds / 2
-        for (child in slot.spriteGroup.children) {
-            val originalColor = child.color.cpy()
-            child.addAction(Actions.sequence(
-                Actions.color(Color.RED, halfDuration, Interpolation.sine),
-                Actions.color(originalColor, halfDuration, Interpolation.sine)
-            ))
-        }
-        combatFlashShown = TileSingleAnimation.COMBAT_FLASH_RED
+        for (child in slot.spriteGroup.children)
+            CombatFlashRed.animateOnce(child, elapsedSeconds)
     }
 
     override fun doUpdate(viewingCiv: CivView?) {
