@@ -3,7 +3,7 @@ package com.unciv.ui.components.tilegroups
 import com.badlogic.gdx.graphics.Color
 import com.unciv.UncivGame
 import com.unciv.view.CivView
-import com.unciv.view.TileMarker
+import com.unciv.view.TileOverlay
 import com.unciv.view.TileView
 import com.unciv.ui.images.ImageGetter
 import com.unciv.ui.components.extensions.darken
@@ -18,7 +18,7 @@ class WorldTileGroup(tileView: TileView, tileSetStrings: TileSetStrings)
         updateWorkedIcon(viewingCiv!!)
         // Has to run *after* updateWorkedIcon - that unconditionally recreates the worked-icon Actor
         // at full alpha, which would otherwise immediately clobber whatever dimPopulation just set.
-        layerMisc.dimPopulation(tileView.hasMarker(TileMarker.DIM_POPULATION))
+        layerMisc.dimPopulation(tileView.hasOverlay(TileOverlay.DIM_POPULATION))
     }
 
     private fun updateWorkedIcon(viewingCiv: CivView) {

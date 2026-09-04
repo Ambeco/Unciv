@@ -7,12 +7,12 @@ import com.unciv.logic.battle.TargetHelper
 import com.unciv.logic.city.City
 import com.unciv.models.Spy
 import com.unciv.models.ruleset.unique.UniqueType
-import com.unciv.view.TileMarker
 import com.unciv.view.CivView
 import com.unciv.view.MapUnitView
+import com.unciv.view.TileOverlay
 
-// Every highlight/overlay here is written as a TileMarker bit onto the tile's TileView instead of
-// pushed directly into a WorldTileGroup - see TileMarker's own doc for why. One consequence: most
+// Every highlight/overlay here is written as a TileOverlay bit onto the tile's TileView instead of
+// pushed directly into a WorldTileGroup - see TileOverlay's own doc for why. One consequence: most
 // functions below now iterate every tile in tileMap, not just the pooled/visible subset.
 object WorldMapTileUpdater {
 
@@ -28,10 +28,10 @@ object WorldMapTileUpdater {
                 it.isForceVisible = true } // So we can see all resources, regardless of tech
         }
 
-        // Recompute every tile's current UI markers *before* the general per-tile update pass below -
+        // Recompute every tile's current UI overlays *before* the general per-tile update pass below -
         // each tile's own update() (via its layers' doUpdate()) is what actually reads and renders
         // them, so they need to already be current by the time that runs - see this object's own doc.
-        tileMapView.resetMarkers()
+        tileMapView.resetOverlays()
 
         // Update tiles according to selected unit/city
         val unitTable = worldScreen.bottomUnitTable
@@ -58,10 +58,10 @@ object WorldMapTileUpdater {
         }
 
         // Applied last - highest priority, wins over anything else set on the same tile (see
-        // TileLayerOverlay.applyMarkers's own doc).
-        selectedTile?.addMarker(TileMarker.SELECTED)
+        // TileLayerOverlay.applyOverlays's own doc).
+        selectedTile?.addOverlay(TileOverlay.SELECTED)
 
-        // General update of all tiles - reads back the markers just computed above.
+        // General update of all tiles - reads back the overlays just computed above.
         forEachVisibleTileGroup { it.update(civView) }
 
         zoom(scaleX) // zoom to current scale, to set the size of the city buttons after "next turn"
@@ -80,7 +80,7 @@ object WorldMapTileUpdater {
                 val tileView = tileMapView.getTile(tile)
 
                 // Fade out population icons
-                tileView.addMarker(TileMarker.DIM_POPULATION)
+                tileView.addOverlay(TileOverlay.DIM_POPULATION)
 
                 val shownImprovementName = tile.getShownImprovement(unit.civ)
                 val shownImprovement = unit.civ.gameInfo.ruleset.tileImprovements[shownImprovementName]
@@ -89,7 +89,7 @@ object WorldMapTileUpdater {
                 if (shownImprovement != null &&
                     !shownImprovement.isBarbarianCampEquivalent(tile.stateThisTile) &&
                     !shownImprovement.isAncientRuinsEquivalent(unit.cache.state))
-                    tileView.addMarker(TileMarker.DIM_IMPROVEMENT)
+                    tileView.addOverlay(TileOverlay.DIM_IMPROVEMENT)
             }
         }
 
@@ -97,7 +97,7 @@ object WorldMapTileUpdater {
         // Highlight suitable tiles in swapping-mode
         if (worldScreen.bottomUnitTable.selectedUnitIsSwapping) {
             for (tileView in unitView.getUnitSwappableTiles())
-                tileView.addMarker(TileMarker.SWAP_TARGET)
+                tileView.addOverlay(TileOverlay.SWAP_TARGET)
             // In swapping-mode we don't want to show other overlays
             return
         }
@@ -107,11 +107,11 @@ object WorldMapTileUpdater {
         if (worldScreen.bottomUnitTable.selectedUnitIsConnectingRoad) {
             if (!unitView.rulesetHasRoadImprovement()) return
             for (tileView in unitView.getValidRoadConnectionTiles())
-                tileView.addMarker(TileMarker.ROAD_CONNECT_VALID)
+                tileView.addOverlay(TileOverlay.ROAD_CONNECT_VALID)
 
             if (unitConnectRoadPaths.containsKey(unitView)) {
                 for (tileView in unitConnectRoadPaths[unitView]!!)
-                    tileView.addMarker(TileMarker.ROAD_CONNECT_PATH)
+                    tileView.addOverlay(TileOverlay.ROAD_CONNECT_PATH)
             }
 
             // In road connecting mode we don't want to show other overlays
@@ -131,13 +131,13 @@ object WorldMapTileUpdater {
             if (isAirUnit && !unitView.isPreparingAirSweep()) {
                 if (nukeBlastRadius >= 0 && tileView.aerialDistanceTo(selectedTile!!) <= nukeBlastRadius) {
                     // The tile is within the nuke blast radius
-                    tileView.addMarker(TileMarker.AIR_NUKE_BLAST)
+                    tileView.addOverlay(TileOverlay.AIR_NUKE_BLAST)
                 } else if (tileView.aerialDistanceTo(unitView.getTile()) <= unitView.getRange()) {
                     // The tile is within attack range
-                    tileView.addMarker(TileMarker.AIR_ATTACK_RANGE)
+                    tileView.addOverlay(TileOverlay.AIR_ATTACK_RANGE)
                 } else if (unitView.isExplored(tileView) && tileView.aerialDistanceTo(unitView.getTile()) <= unitView.getRange()*2) {
                     // The tile is within move range
-                    tileView.addMarker(if (unitView.canMoveTo(tileView)) TileMarker.AIR_MOVE_RANGE_OK else TileMarker.AIR_MOVE_RANGE_BLOCKED)
+                    tileView.addOverlay(if (unitView.canMoveTo(tileView)) TileOverlay.AIR_MOVE_RANGE_OK else TileOverlay.AIR_MOVE_RANGE_BLOCKED)
                 }
             }
 
@@ -145,17 +145,17 @@ object WorldMapTileUpdater {
             if (unitView.canMoveTo(tileView) ||
                 unitView.isUnknownTileWeShouldAssumeToBePassable(tileView) && !isAirUnit
             ) {
-                tileView.addMarker(TileMarker.MOVABLE_TO)
-                if (unitView.isPreparingParadrop()) tileView.addMarker(TileMarker.MOVABLE_TO_PARADROP)
+                tileView.addOverlay(TileOverlay.MOVABLE_TO)
+                if (unitView.isPreparingParadrop()) tileView.addOverlay(TileOverlay.MOVABLE_TO_PARADROP)
             }
         }
 
         // Z-Layer: 2
-        // Add back in the red markers for Air Unit Attack range since they can't move, but can still attack
+        // Add back in the red overlay for Air Unit Attack range since they can't move, but can still attack
         if (unitView.cannotMove() && isAirUnit && !unitView.isPreparingAirSweep()) {
             for (tileView in unitView.getTilesInAttackRange()) {
                 // The tile is within attack range
-                tileView.addMarker(TileMarker.AIR_ATTACK_ONLY)
+                tileView.addOverlay(TileOverlay.AIR_ATTACK_ONLY)
             }
         }
 
@@ -163,7 +163,7 @@ object WorldMapTileUpdater {
         // Movement paths
         if (unitMovementPaths.containsKey(unitView)) {
             for (tileView in unitMovementPaths[unitView]!!) {
-                tileView.addMarker(TileMarker.MOVEMENT_PATH)
+                tileView.addOverlay(TileOverlay.MOVEMENT_PATH)
             }
         }
 
@@ -172,14 +172,14 @@ object WorldMapTileUpdater {
         if (unitView.isAutomatingRoadConnection()) {
             val futureTiles = unitView.getFutureAutomatedRoadConnectionTiles() ?: return
             for (tileView in futureTiles) {
-                tileView.addMarker(TileMarker.ROAD_AUTOMATION_FUTURE)
+                tileView.addOverlay(TileOverlay.ROAD_AUTOMATION_FUTURE)
             }
         }
 
         // Z-Layer: 5
         // Highlight movement destination tile
         if (unitView.isMoving()) {
-            unitView.getMovementDestination().addMarker(TileMarker.MOVEMENT_DESTINATION)
+            unitView.getMovementDestination().addOverlay(TileOverlay.MOVEMENT_DESTINATION)
         }
 
         // Z-Layer: 6
@@ -201,12 +201,12 @@ object WorldMapTileUpdater {
 
             for (attackableTile in attackableTiles) {
                 val tileViewToAttack = tileMapView.getTile(attackableTile.tileToAttack)
-                tileViewToAttack.addMarker(TileMarker.ATTACKABLE)
+                tileViewToAttack.addOverlay(TileOverlay.ATTACKABLE)
                 // the targets which cannot be attacked without movements shown as orange-ish
                 if (attackableTile.tileToAttackFrom != unit.currentTile)
-                    tileViewToAttack.addMarker(TileMarker.ATTACKABLE_NEEDS_MOVE)
+                    tileViewToAttack.addOverlay(TileOverlay.ATTACKABLE_NEEDS_MOVE)
                 if (attackableTile.tileToAttack == selectedTile?.getTile())
-                    tileMapView.getTile(attackableTile.tileToAttackFrom).addMarker(TileMarker.ATTACK_SOURCE)
+                    tileMapView.getTile(attackableTile.tileToAttackFrom).addOverlay(TileOverlay.ATTACK_SOURCE)
             }
         }
 
@@ -217,7 +217,7 @@ object WorldMapTileUpdater {
             val unit = unitView.getUnit()
             CityLocationTileRanker.getBestTilesToFoundCity(unit, 5, minimumValue = 50f).tileRankMap.asSequence()
                 .filter { it.key.isExplored(unit.civ) }.sortedByDescending { it.value }.take(3).forEach {
-                    tileMapView.getTile(it.key).addMarker(TileMarker.SUGGESTED_CITY_SITE)
+                    tileMapView.getTile(it.key).addOverlay(TileOverlay.SUGGESTED_CITY_SITE)
                 }
         }
     }
@@ -226,15 +226,15 @@ object WorldMapTileUpdater {
         for (tile in tileMap.tileList) {
             val tileView = tileMapView.getTile(tile)
             // Every tile's own highlight/crosshair/good-city-location-indicator is already reset by
-            // resetMarkers() (nothing here sets any of those markers), matching the old
+            // resetOverlays() (nothing here sets any of those overlays), matching the old
             // layerOverlay.reset() call this replaces.
             if (!tile.isCityCenter())
-                tileView.addMarker(TileMarker.DIM_IMPROVEMENT)
-            tileView.addMarker(TileMarker.SPY_DIM_MODE)
+                tileView.addOverlay(TileOverlay.DIM_IMPROVEMENT)
+            tileView.addOverlay(TileOverlay.SPY_DIM_MODE)
         }
         for (city in worldScreen.gameInfo.getCities()) {
             if (spy.canMoveTo(city)) {
-                tileMapView.getTile(city.getCenterTile()).addMarker(TileMarker.SPY_TARGET_CITY)
+                tileMapView.getTile(city.getCenterTile()).addOverlay(TileOverlay.SPY_TARGET_CITY)
             }
         }
     }
@@ -242,7 +242,7 @@ object WorldMapTileUpdater {
     private fun WorldMapHolder.updateBombardableTilesForSelectedCity(city: City) {
         if (!city.canBombard()) return
         for (tile in TargetHelper.getBombardableTiles(city)) {
-            tileMapView.getTile(tile).addMarker(TileMarker.BOMBARDABLE)
+            tileMapView.getTile(tile).addOverlay(TileOverlay.BOMBARDABLE)
         }
     }
 }

@@ -22,7 +22,7 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
                spectatorMode: Boolean = false) : View<Tile>(tile, viewer, spectatorMode) {
 
     /**
-     * Bitmask of [TileMarker] flags - transient UI decoration state (current selection highlights,
+     * Bitmask of [TileOverlay] flags - transient UI decoration state (current selection highlights,
      * overlays, dimming, city-button state, etc.), computed fresh by
      * [com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater] on every relevant game/UI
      * event and read directly by each concerned
@@ -35,25 +35,25 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
      * ever redraw it short of the next unrelated full-update pass - the exact bug arrow overlays had
      * (see [com.unciv.ui.screens.worldscreen.worldmap.ArrowLifecycle]'s doc) before this. A [TileView]
      * is never "recycled" - it's the same instance for a given [Tile] for as long as [tileMapView]
-     * lives (see [TileMapView.getTile]'s caching) - so markers set here are automatically picked up
+     * lives (see [TileMapView.getTile]'s caching) - so overlays set here are automatically picked up
      * the instant a tile (re)binds, whether or not it happened to be pooled when they were set.
      *
-     * Only ever mutated via [addMarker]/[TileMapView.resetMarkers] - never assigned directly - so
-     * [TileMapView] can track which tiles actually have a marker set (see
-     * [TileMapView.resetMarkers]'s own doc for why that matters).
+     * Only ever mutated via [addOverlay]/[TileMapView.resetOverlays] - never assigned directly - so
+     * [TileMapView] can track which tiles actually have an overlay set (see
+     * [TileMapView.resetOverlays]'s own doc for why that matters).
      */
-    var markers: Int = 0
+    var overlays: Int = 0
         internal set
 
-    fun hasMarker(flag: Int) = markers and flag != 0
+    fun hasOverlay(flag: Int) = overlays and flag != 0
 
-    /** Sets [flag] on this tile's [markers] - see that property's own doc. */
-    fun addMarker(flag: Int) = tileMapView.addMarker(this, flag)
+    /** Sets [flag] on this tile's [overlays] - see that property's own doc. */
+    fun addOverlay(flag: Int) = tileMapView.addOverlay(this, flag)
 
     /** The [MapUnit] whose flag icon should currently render as "selected" on this tile - not
-     *  itself a [TileMarker] bit, since it needs an actual [MapUnit] reference rather than a plain
-     *  boolean, but tracked/reset alongside [markers] all the same - see
-     *  [TileMapView.resetMarkers]. */
+     *  itself a [TileOverlay] bit, since it needs an actual [MapUnit] reference rather than a plain
+     *  boolean, but tracked/reset alongside [overlays] all the same - see
+     *  [TileMapView.resetOverlays]. */
     var selectedUnitForFlag: MapUnit? = null
         internal set
 
@@ -67,9 +67,9 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
 
     /**
      * Which one-shot animation (if any) is currently playing on this tile, and when it started -
-     * see [playAnimation]. Unlike [markers] (persistent "current state", recomputed fresh and
-     * cleared by [TileMapView.resetMarkers] every `updateTiles()` pass), this is edge-triggered and
-     * deliberately *not* touched by [TileMapView.resetMarkers] - clearing it is [clearAnimation]'s
+     * see [playAnimation]. Unlike [overlays] (persistent "current state", recomputed fresh and
+     * cleared by [TileMapView.resetOverlays] every `updateTiles()` pass), this is edge-triggered and
+     * deliberately *not* touched by [TileMapView.resetOverlays] - clearing it is [clearAnimation]'s
      * job, called either by whichever [com.unciv.ui.components.tilegroups.layers.TileLayer] renders
      * it once elapsed real time exceeds [TileSingleAnimation.totalDurationSeconds], or by whatever
      * triggered [playAnimation] in the first place, to cancel it early (e.g.
@@ -81,7 +81,7 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
      * animation resume correctly mid-flight if this tile scrolls out of a pooled implementation's
      * view and back in before it finishes: the renderer recomputes "what should this look like right
      * now" purely from elapsed real time on every (re)bind, rather than needing some Actor/Action to
-     * have stayed alive continuously - the same problem (and the same fix) [markers] has for
+     * have stayed alive continuously - the same problem (and the same fix) [overlays] has for
      * persistent highlights, just edge- rather than level-triggered.
      */
     var playingAnimation: PlayingAnimation? = null

@@ -39,21 +39,21 @@ class TileMapView(private val tileMap: TileMap,
     /** Returns the [TileView] at [position], or `null` if it isn't explored by [viewer]. */
     @Readonly fun getTile(position: HexCoord): TileView? = tileMap[position].toViewIfExplored()
 
-    /** [TileView]s [TileView.addMarker]/[TileView.setSelectedUnitForFlag] has touched since the last
-     *  [resetMarkers] - lets that only touch tiles that actually have something set, instead of
+    /** [TileView]s [TileView.addOverlay]/[TileView.setSelectedUnitForFlag] has touched since the last
+     *  [resetOverlays] - lets that only touch tiles that actually have something set, instead of
      *  every ever-cached [TileView] (same "handful of tiles, not the whole map" reasoning
      *  [com.unciv.ui.screens.worldscreen.worldmap.WorldMapHolder.resetArrows]'s own
      *  `tilesWithArrows` uses). */
-    private val tilesWithMarkers = HashSet<TileView>()
+    private val tilesWithOverlays = HashSet<TileView>()
 
     private fun trackForReset(tileView: TileView) {
-        if (tileView.markers == 0 && tileView.selectedUnitForFlag == null) tilesWithMarkers.add(tileView)
+        if (tileView.overlays == 0 && tileView.selectedUnitForFlag == null) tilesWithOverlays.add(tileView)
     }
 
-    /** @see TileView.addMarker */
-    internal fun addMarker(tileView: TileView, flag: Int) {
+    /** @see TileView.addOverlay */
+    internal fun addOverlay(tileView: TileView, flag: Int) {
         trackForReset(tileView)
-        tileView.markers = tileView.markers or flag
+        tileView.overlays = tileView.overlays or flag
     }
 
     /** @see TileView.setSelectedUnitForFlag */
@@ -62,16 +62,16 @@ class TileMapView(private val tileMap: TileMap,
         tileView.selectedUnitForFlag = unit
     }
 
-    /** Clears every tile's current [TileView.markers]/[TileView.selectedUnitForFlag] - called once
+    /** Clears every tile's current [TileView.overlays]/[TileView.selectedUnitForFlag] - called once
      *  at the start of each
      *  [com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater.updateTiles] pass, before that
      *  recomputes and re-sets whichever ones currently apply. */
-    fun resetMarkers() {
-        for (tileView in tilesWithMarkers) {
-            tileView.markers = 0
+    fun resetOverlays() {
+        for (tileView in tilesWithOverlays) {
+            tileView.overlays = 0
             tileView.selectedUnitForFlag = null
         }
-        tilesWithMarkers.clear()
+        tilesWithOverlays.clear()
     }
 
     // Not sure if I want these as part of the API -

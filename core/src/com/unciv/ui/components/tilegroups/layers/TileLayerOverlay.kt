@@ -9,7 +9,7 @@ import com.unciv.view.CivView
 import com.unciv.view.CombatFlashRed
 import com.unciv.view.NukeBlast
 import com.unciv.view.SelectionBlink
-import com.unciv.view.TileMarker
+import com.unciv.view.TileOverlay
 import com.unciv.view.TileSingleAnimation
 import com.unciv.view.TileView
 import com.unciv.ui.components.extensions.colorFromRGB
@@ -103,60 +103,60 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
 
         setUnexplored(viewingCiv)
 
-        applyMarkers()
+        applyOverlays()
         applyAnimation()
 
         val tileView = tileGroup.tileView
         val improvement = tileView.getRuleset().tileImprovements[tileView.getShownImprovement()]
         // Lowest priority: only shown if nothing above already claimed the highlight this pass -
-        // matches the pre-marker code, where this ran as part of the *general* per-tile update pass,
+        // matches the pre-overlay code, where this ran as part of the *general* per-tile update pass,
         // strictly before any selection-driven highlight had a chance to override it.
         if (highlight == null && improvement?.isBarbarianCampEquivalent() == true && viewingCiv.hasExplored(tileView))
             showHighlight(Color.RED)
     }
 
     /**
-     * Resolves [TileView.markers] (see [WorldMapTileUpdater][com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater]
+     * Resolves [TileView.overlays] (see [WorldMapTileUpdater][com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater]
      * for where they're set) into this tile's current highlight/crosshair/good-city-location-indicator.
      * The `when` branches are checked in descending priority - matching the exact order the
-     * pre-marker code applied its equivalent sequence of `showHighlight`/`showCrosshair` calls in
-     * (each one clobbering the last on the same tile), from [TileMarker.SELECTED] (applied
+     * pre-overlay code applied its equivalent sequence of `showHighlight`/`showCrosshair` calls in
+     * (each one clobbering the last on the same tile), from [TileOverlay.SELECTED] (applied
      * unconditionally last, so highest priority here) down to the swap/road-connect/spy/bombard
      * group (each only ever set by a mutually exclusive selection mode, so their relative order here
      * doesn't actually matter in practice).
      */
-    private fun applyMarkers() {
+    private fun applyOverlays() {
         val tileView = tileGroup.tileView
         val tapAlpha = if (UncivGame.Current.settings.singleTapMove) 0.7f else 0.3f
         val attackColor = colorFromRGB(237, 41, 57)
 
         when {
-            tileView.hasMarker(TileMarker.SELECTED) -> showHighlight(Color.WHITE)
-            tileView.hasMarker(TileMarker.ATTACK_SOURCE) -> showHighlight(Color.SKY, 0.7f)
-            tileView.hasMarker(TileMarker.ATTACKABLE) -> showHighlight(attackColor)
-            tileView.hasMarker(TileMarker.MOVEMENT_DESTINATION) -> showHighlight(Color.WHITE, 0.7f)
-            tileView.hasMarker(TileMarker.ROAD_AUTOMATION_FUTURE) -> showHighlight(Color.ORANGE, tapAlpha)
-            tileView.hasMarker(TileMarker.MOVEMENT_PATH) -> showHighlight(Color.SKY, 0.8f)
-            tileView.hasMarker(TileMarker.AIR_ATTACK_ONLY) -> showHighlight(Color.RED, 0.3f)
+            tileView.hasOverlay(TileOverlay.SELECTED) -> showHighlight(Color.WHITE)
+            tileView.hasOverlay(TileOverlay.ATTACK_SOURCE) -> showHighlight(Color.SKY, 0.7f)
+            tileView.hasOverlay(TileOverlay.ATTACKABLE) -> showHighlight(attackColor)
+            tileView.hasOverlay(TileOverlay.MOVEMENT_DESTINATION) -> showHighlight(Color.WHITE, 0.7f)
+            tileView.hasOverlay(TileOverlay.ROAD_AUTOMATION_FUTURE) -> showHighlight(Color.ORANGE, tapAlpha)
+            tileView.hasOverlay(TileOverlay.MOVEMENT_PATH) -> showHighlight(Color.SKY, 0.8f)
+            tileView.hasOverlay(TileOverlay.AIR_ATTACK_ONLY) -> showHighlight(Color.RED, 0.3f)
             // Only the circle-style indicator lives here - when the setting prefers a terrain tint
-            // instead, TileLayerMisc's own applyTerrainOverlayMarkers() handles MOVABLE_TO instead
-            // (matching the pre-marker code's own if (useCircles) showHighlight(...) else
+            // instead, TileLayerMisc's own applyTerrainOverlay() handles MOVABLE_TO instead
+            // (matching the pre-overlay code's own if (useCircles) showHighlight(...) else
             // overlayTerrain(...) branch).
-            tileView.hasMarker(TileMarker.MOVABLE_TO) && UncivGame.Current.settings.useCirclesToIndicateMovableTiles ->
-                showHighlight(if (tileView.hasMarker(TileMarker.MOVABLE_TO_PARADROP)) Color.BLUE else Color.WHITE, tapAlpha)
-            tileView.hasMarker(TileMarker.ROAD_CONNECT_PATH) -> showHighlight(Color.ORANGE, 0.8f)
-            tileView.hasMarker(TileMarker.ROAD_CONNECT_VALID) -> showHighlight(Color.RED, 0.3f)
-            tileView.hasMarker(TileMarker.SWAP_TARGET) -> showHighlight(Color.PURPLE, tapAlpha)
-            tileView.hasMarker(TileMarker.SPY_TARGET_CITY) -> showHighlight(Color.CYAN, 0.7f)
-            tileView.hasMarker(TileMarker.BOMBARDABLE) -> showHighlight(attackColor)
+            tileView.hasOverlay(TileOverlay.MOVABLE_TO) && UncivGame.Current.settings.useCirclesToIndicateMovableTiles ->
+                showHighlight(if (tileView.hasOverlay(TileOverlay.MOVABLE_TO_PARADROP)) Color.BLUE else Color.WHITE, tapAlpha)
+            tileView.hasOverlay(TileOverlay.ROAD_CONNECT_PATH) -> showHighlight(Color.ORANGE, 0.8f)
+            tileView.hasOverlay(TileOverlay.ROAD_CONNECT_VALID) -> showHighlight(Color.RED, 0.3f)
+            tileView.hasOverlay(TileOverlay.SWAP_TARGET) -> showHighlight(Color.PURPLE, tapAlpha)
+            tileView.hasOverlay(TileOverlay.SPY_TARGET_CITY) -> showHighlight(Color.CYAN, 0.7f)
+            tileView.hasOverlay(TileOverlay.BOMBARDABLE) -> showHighlight(attackColor)
         }
 
-        if (tileView.hasMarker(TileMarker.ATTACKABLE))
-            showCrosshair(if (tileView.hasMarker(TileMarker.ATTACKABLE_NEEDS_MOVE)) 0.5f else 1f)
-        else if (tileView.hasMarker(TileMarker.BOMBARDABLE))
+        if (tileView.hasOverlay(TileOverlay.ATTACKABLE))
+            showCrosshair(if (tileView.hasOverlay(TileOverlay.ATTACKABLE_NEEDS_MOVE)) 0.5f else 1f)
+        else if (tileView.hasOverlay(TileOverlay.BOMBARDABLE))
             showCrosshair()
 
-        if (tileView.hasMarker(TileMarker.SUGGESTED_CITY_SITE))
+        if (tileView.hasOverlay(TileOverlay.SUGGESTED_CITY_SITE))
             showGoodCityLocationIndicator()
     }
 
@@ -218,7 +218,7 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
         }
         SelectionBlink -> getHighlight().apply {
             // Deliberately its own Image rather than toggling [highlight] itself (which
-            // [applyMarkers] already manages independently, e.g. for [TileMarker.SELECTED], and
+            // [applyOverlays] already manages independently, e.g. for [TileOverlay.SELECTED], and
             // would otherwise fight this over the same Image's visibility).
             touchable = Touchable.disabled
         }

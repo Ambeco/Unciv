@@ -8,7 +8,7 @@ import com.unciv.ui.components.fonts.Fonts
 import com.unciv.ui.images.ImageGetter
 import com.unciv.view.GameView
 import com.unciv.view.NukeBlast
-import com.unciv.view.TileMarker
+import com.unciv.view.TileOverlay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,14 +17,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Covers the actual bug [com.unciv.view.TileView.markers] exists to fix: a highlight set on a tile
+ * Covers the actual bug [com.unciv.view.TileView.overlays] exists to fix: a highlight set on a tile
  * must survive that tile's [WorldTileGroup] being recycled away to a different tile and back - see
  * that property's own doc. Structural (via [com.unciv.ui.components.tilegroups.layers.TileLayer.isVisible]),
  * same reasoning [TileGroupRebindTest]'s own doc gives for why: most of the per-layer Image state is
  * `internal`, invisible from this separate `tests` module.
  */
 @RunWith(GdxTestRunner::class)
-class TileMarkerRenderingTest {
+class TileOverlayRenderingTest {
 
     private lateinit var testGame: TestGame
     private lateinit var tileSetStrings: TileSetStrings
@@ -56,9 +56,9 @@ class TileMarkerRenderingTest {
     }
 
     @Test
-    fun `a marker set before a tile is ever bound is picked up on its first bind`() {
+    fun `an overlay set before a tile is ever bound is picked up on its first bind`() {
         val tileView = gameView.tileMapView.getTile(testGame.getTile(0, 0))
-        tileView.addMarker(TileMarker.SELECTED)
+        tileView.addOverlay(TileOverlay.SELECTED)
 
         val group = tileGroupFor(0, 0)
         group.update(gameView.civView)
@@ -68,14 +68,14 @@ class TileMarkerRenderingTest {
     }
 
     @Test
-    fun `resetMarkers clears a highlight on the next update`() {
+    fun `resetOverlays clears a highlight on the next update`() {
         val tileView = gameView.tileMapView.getTile(testGame.getTile(0, 0))
-        tileView.addMarker(TileMarker.SELECTED)
+        tileView.addOverlay(TileOverlay.SELECTED)
         val group = tileGroupFor(0, 0)
         group.update(gameView.civView)
         assertTrue(group.layerOverlay.isVisible)
 
-        gameView.tileMapView.resetMarkers()
+        gameView.tileMapView.resetOverlays()
         group.update(gameView.civView)
 
         assertFalse(group.layerOverlay.isVisible)
