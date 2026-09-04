@@ -153,9 +153,8 @@ object BattleTableHelpers {
                 }
             }
 
-        // Unlike the movement/attack-frame-overlay animations below (still raw Actor manipulation,
-        // a follow-up), the red flash goes through TileView.playCombatFlash instead of capturing
-        // Actor references directly - see that function's own doc.
+        // Unlike the movement/attack-frame-overlay animations below (still raw Actor manipulation),
+        // the red flash goes through TileView.playCombatFlash instead of capturing Actors directly.
         fun flashCombatant(combatant: ICombatant) {
             val tileView = selectedGameView.tileMapView.getTile(combatant.getTile())
             if (combatant.isCity()) tileView.playCombatFlash(null)

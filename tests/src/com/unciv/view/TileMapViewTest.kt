@@ -9,13 +9,11 @@ import org.junit.runner.RunWith
 
 /**
  * Covers [TileMapView]'s [TileView]-caching guarantee: every [TileView] any caller gets for a given
- * [com.unciv.logic.map.tile.Tile] must be the *same* instance, regardless of which overload of
- * `getTile` was used to reach it. This isn't just a minor optimization - it's what makes it safe to
- * store mutable per-tile UI state (e.g. current highlight/overlay markers) directly as fields on a
- * [TileView] rather than in some separate Tile-keyed map: two *different* [TileView] objects for the
- * same tile already compare equal ([View.equals]/[View.hashCode] are structural, by the wrapped
- * [com.unciv.logic.map.tile.Tile]), but they don't *share* any mutable field state unless they're
- * actually the same object.
+ * [com.unciv.logic.map.tile.Tile] must be the *same* instance, regardless of which `getTile`
+ * overload reached it. That's what makes it safe to store mutable per-tile UI state directly as
+ * fields on a [TileView] rather than in a separate Tile-keyed map: two *different* [TileView]
+ * objects for the same tile already compare equal ([View.equals]/[View.hashCode] are structural),
+ * but don't *share* mutable field state unless they're the same object.
  */
 @RunWith(GdxTestRunner::class)
 class TileMapViewTest {

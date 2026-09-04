@@ -22,25 +22,17 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
                spectatorMode: Boolean = false) : View<Tile>(tile, viewer, spectatorMode) {
 
     /**
-     * Bitmask of [TileOverlay] flags - transient UI decoration state (current selection highlights,
-     * overlays, dimming, city-button state, etc.), computed fresh by
-     * [com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater] on every relevant game/UI
-     * event and read directly by each concerned
-     * [com.unciv.ui.components.tilegroups.layers.TileLayer]'s own `doUpdate()` (the same call every
-     * bind/rebind already makes for ordinary tile content like terrain or resources).
+     * Bitmask of [TileOverlay] flags - transient UI state (highlights, dimming, etc.) computed by
+     * [com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater] and read back by each
+     * [com.unciv.ui.components.tilegroups.layers.TileLayer]'s `doUpdate()`.
      *
-     * Deliberately stored here rather than pushed into whichever [com.unciv.ui.components.tilegroups.WorldTileGroup]
-     * happens to be pooled for this tile *right now*: a pooled group can be recycled to a completely
-     * different tile at any time, silently dropping anything pushed directly onto it, with nothing to
-     * ever redraw it short of the next unrelated full-update pass - the exact bug arrow overlays had
-     * (see [com.unciv.ui.screens.worldscreen.worldmap.ArrowLifecycle]'s doc) before this. A [TileView]
-     * is never "recycled" - it's the same instance for a given [Tile] for as long as [tileMapView]
-     * lives (see [TileMapView.getTile]'s caching) - so overlays set here are automatically picked up
-     * the instant a tile (re)binds, whether or not it happened to be pooled when they were set.
+     * Stored here, not pushed into whichever pooled [com.unciv.ui.components.tilegroups.WorldTileGroup]
+     * is showing this tile right now - that group can be recycled to a different tile at any time,
+     * silently dropping anything pushed onto it (the bug arrows used to have). A [TileView] is
+     * never recycled, so overlays set here survive any (re)bind.
      *
-     * Only ever mutated via [addOverlay]/[TileMapView.resetOverlays] - never assigned directly - so
-     * [TileMapView] can track which tiles actually have an overlay set (see
-     * [TileMapView.resetOverlays]'s own doc for why that matters).
+     * Only mutated via [addOverlay]/[TileMapView.resetOverlays], so [TileMapView] can track which
+     * tiles have something set.
      */
     var overlays: Int = 0
         internal set
@@ -66,34 +58,21 @@ class TileView internal constructor(private val tile: Tile, val tileMapView: Til
     data class PlayingAnimation(val animation: TileSingleAnimation, val startTimeMillis: Long)
 
     /**
-     * Which one-shot animation (if any) is currently playing on this tile, and when it started -
-     * see [playAnimation]. Unlike [overlays] (persistent "current state", recomputed fresh and
-     * cleared by [TileMapView.resetOverlays] every `updateTiles()` pass), this is edge-triggered and
-     * deliberately *not* touched by [TileMapView.resetOverlays] - clearing it is [clearAnimation]'s
-     * job, called either by whichever [com.unciv.ui.components.tilegroups.layers.TileLayer] renders
-     * it once elapsed real time exceeds [TileSingleAnimation.totalDurationSeconds], or by whatever
-     * triggered [playAnimation] in the first place, to cancel it early (e.g.
-     * [com.unciv.ui.screens.worldscreen.WorldScreen.switchToNextUnit] stopping a "look here" blink
-     * once there's no longer a next unit to look at). Nothing *else* should call it - doing so would
-     * kill an unrelated in-progress animation early.
+     * Which one-shot animation (if any) is playing on this tile, and when it started - see
+     * [playAnimation]. Unlike [overlays] (recomputed and cleared every `updateTiles()` pass), this
+     * is edge-triggered: only [clearAnimation] clears it, either once elapsed time exceeds
+     * [TileSingleAnimation.totalDurationSeconds], or to cancel it early.
      *
-     * Storing (animation, start time) rather than a bare "is playing" flag is what lets the
-     * animation resume correctly mid-flight if this tile scrolls out of a pooled implementation's
-     * view and back in before it finishes: the renderer recomputes "what should this look like right
-     * now" purely from elapsed real time on every (re)bind, rather than needing some Actor/Action to
-     * have stayed alive continuously - the same problem (and the same fix) [overlays] has for
-     * persistent highlights, just edge- rather than level-triggered.
+     * Storing (animation, start time) rather than a bare "is playing" flag lets it resume correctly
+     * if this tile scrolls out of a pooled implementation's view and back in mid-flight: the
+     * renderer recomputes the current visual purely from elapsed time on every (re)bind.
      */
     var playingAnimation: PlayingAnimation? = null
         private set
 
     /** Which of [TileLayerUnitSprite][com.unciv.ui.components.tilegroups.layers.TileLayerUnitSprite]'s
-     *  two slots [CombatFlashRed] should flash, or `null` to flash
-     *  [TileLayerImprovement][com.unciv.ui.components.tilegroups.layers.TileLayerImprovement]'s icon
-     *  instead (the combatant was a city, not a unit) - set alongside [playingAnimation] by
-     *  [playCombatFlash], since a bare "this tile has a flash" flag can't say which of a tile's
-     *  several possible Actors (a stacked civilian *and* military unit, or a city's improvement
-     *  icon) it actually targets. */
+     *  two slots [CombatFlashRed] should flash, or `null` to flash the improvement icon instead (the
+     *  combatant was a city) - set by [playCombatFlash], since a bare flag can't say which Actor. */
     var combatFlashUnit: MapUnit? = null
         private set
 

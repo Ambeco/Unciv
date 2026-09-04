@@ -28,9 +28,8 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
     /** The Actor currently rendering [TileView.playingAnimation], if any - see [applyAnimation]. */
     private var animationActor: Image? = null
     /** Which [TileView.PlayingAnimation] [animationActor] was last (re)created for - lets
-     *  [applyAnimation] tell "already the right Actor for the right instance, leave it alone" apart
-     *  from "just started/resumed/changed, needs (re)creating" without comparing Actors. Must be
-     *  reset alongside [animationActor] on [rebind] - see that override's own comment. */
+     *  [applyAnimation] tell "already correct, leave it alone" apart from "changed, needs
+     *  (re)creating". Reset alongside [animationActor] on [rebind]. */
     private var animationActorFor: TileView.PlayingAnimation? = null
 
     private fun getHighlight() = ImageGetter.getImage(strings.highlight).setHexagonSize()
@@ -118,12 +117,9 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
     /**
      * Resolves [TileView.overlays] (see [WorldMapTileUpdater][com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater]
      * for where they're set) into this tile's current highlight/crosshair/good-city-location-indicator.
-     * The `when` branches are checked in descending priority - matching the exact order the
-     * pre-overlay code applied its equivalent sequence of `showHighlight`/`showCrosshair` calls in
-     * (each one clobbering the last on the same tile), from [TileOverlay.SELECTED] (applied
-     * unconditionally last, so highest priority here) down to the swap/road-connect/spy/bombard
-     * group (each only ever set by a mutually exclusive selection mode, so their relative order here
-     * doesn't actually matter in practice).
+     * The `when` branches are checked in descending priority, from [TileOverlay.SELECTED] (highest)
+     * down to the swap/road-connect/spy/bombard group (mutually exclusive, so order among them
+     * doesn't matter).
      */
     private fun applyOverlays() {
         val tileView = tileGroup.tileView
@@ -138,10 +134,8 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
             tileView.hasOverlay(TileOverlay.ROAD_AUTOMATION_FUTURE) -> showHighlight(Color.ORANGE, tapAlpha)
             tileView.hasOverlay(TileOverlay.MOVEMENT_PATH) -> showHighlight(Color.SKY, 0.8f)
             tileView.hasOverlay(TileOverlay.AIR_ATTACK_ONLY) -> showHighlight(Color.RED, 0.3f)
-            // Only the circle-style indicator lives here - when the setting prefers a terrain tint
-            // instead, TileLayerMisc's own applyTerrainOverlay() handles MOVABLE_TO instead
-            // (matching the pre-overlay code's own if (useCircles) showHighlight(...) else
-            // overlayTerrain(...) branch).
+            // Only the circle-style indicator lives here - the terrain-tint alternative is
+            // TileLayerMisc.applyTerrainOverlay().
             tileView.hasOverlay(TileOverlay.MOVABLE_TO) && UncivGame.Current.settings.useCirclesToIndicateMovableTiles ->
                 showHighlight(if (tileView.hasOverlay(TileOverlay.MOVABLE_TO_PARADROP)) Color.BLUE else Color.WHITE, tapAlpha)
             tileView.hasOverlay(TileOverlay.ROAD_CONNECT_PATH) -> showHighlight(Color.ORANGE, 0.8f)
@@ -161,19 +155,11 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
     }
 
     /**
-     * Resolves [TileView.playingAnimation] into [animationActor] - see that property's own doc for
-     * the resume-mid-flight model this implements. Three cases:
-     * - No animation set (or it's [CombatFlashRed], which tints an *existing* Actor via
-     *   [TileLayerUnitSprite]/[TileLayerImprovement] instead of owning a dedicated one here - see
-     *   [TileView.combatFlashUnit]'s own doc): make sure nothing's showing.
-     * - Elapsed time is past the animation's own duration: it's finished - clear
-     *   [TileView.playingAnimation] (nothing else does, for the animations actually reaching this
-     *   point) and remove whatever's showing.
-     * - Otherwise: (re)create [animationActor] if it isn't already the right kind for the right
-     *   instance (a genuinely new animation, or a different one, since the last call - not just
-     *   [rebind] dropping it), then delegate the actual visual seeding to
-     *   [TileSingleAnimation.animateOnce] - which is itself safe to call every time [doUpdate] runs,
-     *   not just once.
+     * Resolves [TileView.playingAnimation] into [animationActor]. No animation set (or it's
+     * [CombatFlashRed], rendered by [TileLayerUnitSprite]/[TileLayerImprovement] instead): clear.
+     * Past its own duration: clear [TileView.playingAnimation] too and remove whatever's showing.
+     * Otherwise: (re)create [animationActor] if it isn't already the right one for this instance,
+     * then delegate seeding to [TileSingleAnimation.animateOnce].
      */
     private fun applyAnimation() {
         val tileView = tileGroup.tileView
@@ -204,11 +190,8 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
         animationActorFor = null
     }
 
-    /** Creates the (unseeded, unpositioned-beyond-this-tile's-origin) Actor [applyAnimation] hands to
-     *  [TileSingleAnimation.animateOnce] - the specific *kind* of Actor (a plain circle for
-     *  [NukeBlast], a tileset-skinned highlight hexagon for [SelectionBlink]) depends on tileset
-     *  resources ([strings]) only a [TileLayer] has access to, which is why this can't just live
-     *  inside the animation implementations themselves. */
+    /** Creates the unseeded Actor [applyAnimation] hands to [TileSingleAnimation.animateOnce] - its
+     *  kind depends on tileset resources ([strings]) the animation implementations can't reach. */
     private fun createAnimationActor(animation: TileSingleAnimation): Image = when (animation) {
         NukeBlast -> ImageGetter.getCircle().apply {
             touchable = Touchable.disabled
@@ -216,12 +199,9 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
             setOrigin(Align.center)
             setPosition(tileX, tileY)
         }
-        SelectionBlink -> getHighlight().apply {
-            // Deliberately its own Image rather than toggling [highlight] itself (which
-            // [applyOverlays] already manages independently, e.g. for [TileOverlay.SELECTED], and
-            // would otherwise fight this over the same Image's visibility).
-            touchable = Touchable.disabled
-        }
+        // Its own Image rather than toggling [highlight] (which [applyOverlays] manages
+        // independently and would otherwise fight this over the same Image's visibility).
+        SelectionBlink -> getHighlight().apply { touchable = Touchable.disabled }
         else -> error("$animation doesn't own a dedicated Actor - TileLayerUnitSprite/TileLayerImprovement render it instead")
     }
 

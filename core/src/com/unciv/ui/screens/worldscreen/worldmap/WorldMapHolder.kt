@@ -67,11 +67,9 @@ class WorldMapHolder(
      *  [forEachVisibleTileGroup]) exist instead of exposing that Map directly. */
     fun tileGroupOf(tileView: TileView): WorldTileGroup? = tileGroupsByTileView[tileView]
 
-    /**
-     * Resolves a scene-graph hit target ([addClickListener]'s `child`) back to the [WorldTileGroup]
-     * it belongs to, if any - a plain type check, since every tile actor here *is* its own hit
-     * target.
-     */
+    /** Resolves a scene-graph hit target ([addClickListener]'s `child`) back to the [WorldTileGroup]
+     *  it belongs to, if any - a plain type check, since every tile actor here *is* its own hit
+     *  target. */
     fun tileGroupOf(child: Actor): WorldTileGroup? = child as? WorldTileGroup
 
     /** Invokes [op] once for every [TileGroup] this holder currently has a live view for - see
@@ -81,9 +79,8 @@ class WorldMapHolder(
     }
 
     /** Tiles [addArrow] has queued an arrow onto since the last [resetArrows] - lets [resetArrows]
-     *  only touch tiles that actually might have arrows, instead of every live [tileGroupsByTileView]
-     *  entry (up to ~8000 tiles here) on every single call, the overwhelming majority of which never
-     *  have any arrows queued on a typical turn (a handful of moving/attacking units). */
+     *  only touch tiles that actually might have one, instead of every live [tileGroupsByTileView]
+     *  entry (up to ~8000 tiles here) on every call. */
     private val tilesWithArrows = HashSet<TileView>()
 
     /** Holds buttons created by [OverlayButtonData] implementations */
@@ -624,9 +621,8 @@ class WorldMapHolder(
             && viewingCiv.isDefeated()
     }
 
-    /** Clear all arrows to be drawn on the next update. Uses [tilesWithArrows] rather than
-     *  sweeping every live [tileGroupsByTileView] entry - see that field's own doc for why that
-     *  matters specifically here. */
+    /** Clear all arrows to be drawn on the next update. Uses [tilesWithArrows] rather than sweeping
+     *  every live [tileGroupsByTileView] entry. */
     fun resetArrows() {
         for (tileView in tilesWithArrows)
             tileGroupsByTileView[tileView]?.layerMisc?.resetArrows()

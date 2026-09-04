@@ -10,32 +10,25 @@ import com.badlogic.gdx.utils.Align
 
 /**
  * A one-shot animation [TileView.playAnimation] can trigger on a tile - see
- * [TileView.playingAnimation]'s own doc for the (animation, start time) pairing this is used in.
- * Each implementation is a stateless singleton `object`; all per-tile state lives on the caller-owned
- * [Actor] passed to [animateOnce], not here.
+ * [TileView.playingAnimation]'s own doc for the (animation, start time) pairing. Each
+ * implementation is a stateless singleton `object`; per-tile state lives on the caller-owned
+ * [Actor] passed to [animateOnce].
  *
- * Most animations are rendered by [com.unciv.ui.components.tilegroups.layers.TileLayerOverlay] as a
- * dedicated owned Actor it creates itself (the actor's *kind* - a plain circle for [NukeBlast], a
- * tileset-skinned highlight hexagon for [SelectionBlink] - depends on tileset resources this
- * `com.unciv.view` package has no access to, so creating it stays the caller's job).
- * [CombatFlashRed] is the exception: it tints an *existing* Actor
- * ([TileView.combatFlashUnit]'s own doc has why) via
- * [com.unciv.ui.components.tilegroups.layers.TileLayerUnitSprite]/
- * [com.unciv.ui.components.tilegroups.layers.TileLayerImprovement] instead of ever creating one.
+ * The caller creates that Actor (a plain circle for [NukeBlast], a tileset-skinned hexagon for
+ * [SelectionBlink] - resources this package can't reach) except for [CombatFlashRed], which tints
+ * an *existing* Actor the caller already owns instead of creating its own.
  */
 interface TileSingleAnimation {
-    /** How long this animation plays for, start to finish - past this, the renderer clears
-     *  [TileView.playingAnimation] on its own; nothing external needs to schedule that. */
+    /** How long this animation plays for - past this the renderer clears [TileView.playingAnimation]
+     *  on its own. */
     val totalDurationSeconds: Float
 
     /**
-     * (Re)applies this animation's in-progress visual state to [actor], [elapsedSeconds] into
-     * playback. Called on every relevant update, not just once - implementations must reseed
-     * [actor]'s visual state purely from [elapsedSeconds] (never incremental/relative state) so it
-     * resumes correctly if a tile scrolls out of a pooled implementation's view and back in
-     * mid-flight; checking `actor.hasActions()` first is enough to skip redundant rebuilds when
-     * nothing's changed since the last call (see [NukeBlast]/[CombatFlashRed] for why that check
-     * matters more for one than the other).
+     * (Re)applies this animation's visual state to [actor], [elapsedSeconds] into playback. Called
+     * on every relevant update, so implementations must reseed [actor] purely from [elapsedSeconds]
+     * (not incremental state) to resume correctly after a tile scrolls out of a pooled
+     * implementation's view and back in mid-flight - `actor.hasActions()` is enough to skip
+     * redundant rebuilds when nothing's changed.
      */
     fun animateOnce(actor: Actor, elapsedSeconds: Float)
 }
@@ -43,12 +36,10 @@ interface TileSingleAnimation {
 /**
  * A circle that blooms outward and fades in (1s), holds (1s), then fades out (1s) - matches the
  * animation `BattleTable.simulateNuke` used to build inline as a one-off Actor. [elapsedSeconds]
- * may be anywhere in that 3s window (not just 0, if this is resuming after a
+ * may be anywhere in that 3s window (e.g. resuming after a
  * [com.unciv.ui.components.tilegroups.TileGroup.rebind]) - the `when` below seeds the image to the
- * exact in-progress state for whichever phase that falls in, then attaches an Action for only what's
- * left of the animation from there. Splitting the interpolation like this (rather than e.g.
- * `Actions.delay(elapsedSeconds)` then the original from-scratch sequence) is what makes a resume
- * after scrolling back in look continuous instead of restarting or jumping.
+ * right in-progress state for that phase, then attaches an Action for just what's left, so a resume
+ * looks continuous instead of restarting or jumping.
  */
 object NukeBlast : TileSingleAnimation {
     override val totalDurationSeconds = 3f
@@ -95,9 +86,8 @@ object NukeBlast : TileSingleAnimation {
 /**
  * A standalone highlight-shaped Image that blinks hidden/shown three times - the "look here" flash
  * [com.unciv.ui.screens.worldscreen.worldmap.AbstractWorldMapHolder.setCenterPosition] plays on
- * whatever tile it just centered the view on. [elapsedSeconds] needs seeding into the right phase
- * here too, for the same reason [NukeBlast] does - rather than restarting from scratch after a
- * [com.unciv.ui.components.tilegroups.TileGroup.rebind].
+ * whatever tile it just centered the view on. Seeds [elapsedSeconds] into the right phase, same
+ * reason as [NukeBlast].
  */
 object SelectionBlink : TileSingleAnimation {
     override val totalDurationSeconds = 1.8f
@@ -131,13 +121,10 @@ object SelectionBlink : TileSingleAnimation {
 
 /**
  * The red tint `BattleTableHelpers.battleAnimation` plays on a combat participant's own sprite/icon -
- * fades to red over the first half, back to its original color over the second. Unlike
- * [NukeBlast]/[SelectionBlink], [actor] here is an *existing* Actor the caller already owns (a
- * sprite-slot child, or a city's improvement icon), tinted in place rather than a dedicated Actor of
- * this animation's own - see [TileView.combatFlashUnit]'s own doc for why. No resume-mid-flight
- * seeding: at 0.4s total, a pool eviction landing exactly inside that window is negligible, so this
- * always (re)plays the flash fresh from [actor]'s current actual color rather than computing where a
- * precise resume would be - [elapsedSeconds] is unused.
+ * fades to red then back to its original color. Unlike [NukeBlast]/[SelectionBlink], [actor] is an
+ * *existing* Actor the caller already owns, tinted in place - see [TileView.combatFlashUnit]'s own
+ * doc for why. No resume-mid-flight seeding: at 0.4s total a pool eviction mid-flash is negligible,
+ * so this always replays fresh from [actor]'s current color - [elapsedSeconds] is unused.
  */
 object CombatFlashRed : TileSingleAnimation {
     override val totalDurationSeconds = 0.4f

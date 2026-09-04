@@ -4,7 +4,6 @@ import com.unciv.UncivGame
 import com.unciv.view.CivView
 import com.unciv.view.CombatFlashRed
 import com.unciv.view.ForeignMapUnitView
-import com.unciv.view.TileSingleAnimation
 import com.unciv.logic.map.mapunit.MapUnit
 import com.unciv.ui.components.NonTransformGroup
 import com.unciv.ui.components.tilegroups.TileGroup
@@ -74,11 +73,9 @@ class TileLayerUnitSprite(tileGroup: TileGroup, size: Float) : TileLayer(tileGro
     }
 
     /**
-     * [CombatFlashRed] doesn't build a dedicated owned Actor the way [TileLayerOverlay]'s animations
-     * do - it tints whichever sprite slot [TileView.combatFlashUnit] names, since that's an
-     * *existing* Actor this layer already owns, not a new one - so, unlike [TileLayerOverlay], this
-     * layer is the one responsible for clearing [TileView.playingAnimation] once elapsed time is past
-     * [TileSingleAnimation.totalDurationSeconds], for the one animation type it actually renders.
+     * [CombatFlashRed] tints whichever sprite slot [TileView.combatFlashUnit] names, an *existing*
+     * Actor this layer already owns - so, unlike [TileLayerOverlay], this layer is the one
+     * responsible for clearing [TileView.playingAnimation] once its duration elapses.
      */
     private fun applyCombatFlash() {
         val tileView = tileGroup.tileView
