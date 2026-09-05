@@ -72,11 +72,6 @@ class TileLayerUnitSprite(tileGroup: TileGroup, size: Float) : TileLayer(tileGro
         forEachOwnedActor { it.color.a = 0.5f }
     }
 
-    /**
-     * [CombatFlashRed] tints whichever sprite slot [TileView.combatFlashUnit] names, an *existing*
-     * Actor this layer already owns - so, unlike [TileLayerOverlay], this layer is the one
-     * responsible for clearing [TileView.playingAnimation] once its duration elapses.
-     */
     private fun applyCombatFlash() {
         val tileView = tileGroup.tileView
         val playing = tileView.playingAnimation
@@ -89,7 +84,7 @@ class TileLayerUnitSprite(tileGroup: TileGroup, size: Float) : TileLayer(tileGro
         }
         val slot = getSpriteSlot(unit) ?: return
         for (child in slot.spriteGroup.children)
-            CombatFlashRed.animateOnce(child, elapsedSeconds)
+            CombatFlashRed.animateOnce(child, elapsedSeconds, tileView, playing)
     }
 
     override fun doUpdate(viewingCiv: CivView?) {

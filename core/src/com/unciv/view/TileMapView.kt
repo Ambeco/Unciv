@@ -6,6 +6,7 @@ import com.unciv.logic.map.HexCoord
 import com.unciv.logic.map.TileMap
 import com.unciv.logic.map.mapunit.MapUnit
 import com.unciv.logic.map.tile.Tile
+import org.jetbrains.annotations.VisibleForTesting
 import yairm210.purity.annotations.Cache
 import yairm210.purity.annotations.Readonly
 
@@ -27,10 +28,6 @@ class TileMapView(private val tileMap: TileMap,
 
     @Readonly private fun Tile.toViewIfExplored(): TileView? {
         if (viewer != null && !isExplored(viewer)) return null
-        // Route through the cache instead of constructing a fresh TileView directly - two different
-        // TileView instances for the same Tile already compare equal, but mutable per-tile state
-        // stored directly on a TileView (rather than an external Tile-keyed map) would only be
-        // visible through whichever instance set it, not "the same tile" in general.
         return this@TileMapView.getTile(this)
     }
 
@@ -62,6 +59,7 @@ class TileMapView(private val tileMap: TileMap,
     /** Clears every tile's current [TileView.overlays]/[TileView.selectedUnitForFlag] - called at
      *  the start of each [com.unciv.ui.screens.worldscreen.worldmap.WorldMapTileUpdater.updateTiles]
      *  pass, before that recomputes and re-sets whichever ones currently apply. */
+    @VisibleForTesting
     fun resetOverlays() {
         for (tileView in tilesWithOverlays) {
             tileView.overlays = 0

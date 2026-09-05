@@ -180,7 +180,7 @@ class TileLayerOverlay(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup,
             animationActorFor = playing
             determineVisibility()
         }
-        playing.animation.animateOnce(animationActor!!, elapsedSeconds)
+        playing.animation.animateOnce(animationActor!!, elapsedSeconds, tileView, playing)
     }
 
     private fun clearAnimationActor() {

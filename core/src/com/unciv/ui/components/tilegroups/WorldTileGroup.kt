@@ -16,8 +16,6 @@ class WorldTileGroup(tileView: TileView, tileSetStrings: TileSetStrings)
         super.update(viewingCiv)
 
         updateWorkedIcon(viewingCiv!!)
-        // Has to run *after* updateWorkedIcon - that unconditionally recreates the worked-icon Actor
-        // at full alpha, which would otherwise immediately clobber whatever dimPopulation just set.
         layerMisc.dimPopulation(tileView.hasOverlay(TileOverlay.DIM_POPULATION))
     }
 

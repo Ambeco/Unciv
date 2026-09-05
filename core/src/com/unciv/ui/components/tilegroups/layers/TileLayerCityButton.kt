@@ -67,11 +67,6 @@ class TileLayerCityButton(tileGroup: TileGroup, size: Float) : TileLayer(tileGro
         }
 
         cityButton!!.update(DebugUtils.VISIBLE_MAP || isViewable(viewingCiv))
-
-        // Spy-selection view nudges every city button down (see WorldMapTileUpdater) - moveDown()
-        // is idempotent (CityButton.isButtonMoved guards it), so it's safe to call unconditionally
-        // here on every update while the overlay's set; moving back up is still driven entirely by
-        // CityButton's own click/selection handling, unchanged.
         if (tileGroup.tileView.hasOverlay(TileOverlay.SPY_DIM_MODE)) moveDown()
     }
 

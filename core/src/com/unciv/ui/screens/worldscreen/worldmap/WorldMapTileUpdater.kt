@@ -11,9 +11,6 @@ import com.unciv.view.CivView
 import com.unciv.view.MapUnitView
 import com.unciv.view.TileOverlay
 
-// Every highlight/overlay here is written as a TileOverlay bit onto the tile's TileView instead of
-// pushed directly into a WorldTileGroup - see TileOverlay's own doc for why. One consequence: most
-// functions below now iterate every tile in tileMap, not just the pooled/visible subset.
 object WorldMapTileUpdater {
 
     private val WorldMapHolder.tileMapView get() = worldScreen.selectedGameView.tileMapView
@@ -28,10 +25,7 @@ object WorldMapTileUpdater {
                 it.isForceVisible = true } // So we can see all resources, regardless of tech
         }
 
-        // Recompute every tile's current UI overlays *before* the general per-tile update pass below -
-        // each tile's own update() (via its layers' doUpdate()) is what actually reads and renders
-        // them, so they need to already be current by the time that runs - see this object's own doc.
-        tileMapView.resetOverlays()
+         tileMapView.resetOverlays()
 
         // Update tiles according to selected unit/city
         val unitTable = worldScreen.bottomUnitTable
@@ -57,12 +51,10 @@ object WorldMapTileUpdater {
             }
         }
 
-        // Applied last - highest priority, wins over anything else set on the same tile (see
-        // TileLayerOverlay.applyOverlays's own doc).
+        val selectedTile = this.selectedTile
         selectedTile?.addOverlay(TileOverlay.SELECTED)
-
-        // General update of all tiles - reads back the overlays just computed above.
-        forEachVisibleTileGroup { it.update(civView) }
+        if (selectedTile != null)
+            tileGroupOf(selectedTile)?.update(civView)
 
         zoom(scaleX) // zoom to current scale, to set the size of the city buttons after "next turn"
     }
@@ -225,9 +217,6 @@ object WorldMapTileUpdater {
     private fun WorldMapHolder.updateTilesForSelectedSpy(spy: Spy) {
         for (tile in tileMap.tileList) {
             val tileView = tileMapView.getTile(tile)
-            // Every tile's own highlight/crosshair/good-city-location-indicator is already reset by
-            // resetOverlays() (nothing here sets any of those overlays), matching the old
-            // layerOverlay.reset() call this replaces.
             if (!tile.isCityCenter())
                 tileView.addOverlay(TileOverlay.DIM_IMPROVEMENT)
             tileView.addOverlay(TileOverlay.SPY_DIM_MODE)

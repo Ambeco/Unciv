@@ -398,9 +398,6 @@ class BattleTable(val worldScreen: WorldScreen) : Table() {
         } else {
             attackButton.onClick(attacker.getAttackSound()) {
                 Nuke.NUKE(attacker, targetTile)
-
-                // Rendered by TileLayerOverlay, driven purely by this state - keeps playing
-                // correctly even if the target tile scrolls out of a pooled view and back in.
                 worldScreen.selectedGameView.tileMapView.getTile(targetTile).playAnimation(NukeBlast)
 
                 worldScreen.mapHolder.removeUnitActionOverlay() // the overlay was one of attacking

@@ -216,9 +216,6 @@ class TileLayerImprovement(tileGroup: TileGroup, size: Float) : TileLayer(tileGr
             UncivGame.Current.settings.showResourcesAndImprovements else true
 
         updateImprovementIcon(showResourcesAndImprovements)
-        // overlays is only ever set for a WorldTileGroup's tileView (see WorldMapTileUpdater) - stays
-        // 0 (hasOverlay always false) for any other context this layer is used in, e.g. Civilopedia/
-        // the map editor/CityScreen, so this is a harmless no-op there, matching today's behavior.
         dimImprovement(tileGroup.tileView.hasOverlay(TileOverlay.DIM_IMPROVEMENT))
         applyCombatFlash()
     }
@@ -237,7 +234,7 @@ class TileLayerImprovement(tileGroup: TileGroup, size: Float) : TileLayer(tileGr
             return
         }
         val icon = improvementIcon ?: return
-        CombatFlashRed.animateOnce(icon, elapsedSeconds)
+        CombatFlashRed.animateOnce(icon, elapsedSeconds, tileView, playing)
     }
 
     private fun updateImprovementIcon(show: Boolean) {
@@ -514,12 +511,6 @@ class TileLayerMisc(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup, si
 
     fun dimPopulation(dim: Boolean) { workedIcon?.color?.a = if (dim) 0.4f else 1f }
 
-    /**
-     * Resolves [TileView.overlays] into this tile's current terrain-tint overlay - the [TileOverlay.MOVABLE_TO]
-     * branch only applies when [com.unciv.models.metadata.GameSettings.useCirclesToIndicateMovableTiles]
-     * is off (see [TileLayerOverlay.applyOverlays] for the other half of that split); checked before
-     * the air-range flags since a movable-to tile should win over an air-specific one when both apply.
-     */
     private fun applyTerrainOverlay() {
         val tileView = tileGroup.tileView
         if (!UncivGame.Current.settings.useCirclesToIndicateMovableTiles && tileView.hasOverlay(TileOverlay.MOVABLE_TO)) {

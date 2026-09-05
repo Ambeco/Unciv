@@ -29,8 +29,32 @@ interface TileSingleAnimation {
      * (not incremental state) to resume correctly after a tile scrolls out of a pooled
      * implementation's view and back in mid-flight - `actor.hasActions()` is enough to skip
      * redundant rebuilds when nothing's changed.
+     *
+     * [tileView] and [token] identify which [TileView.playingAnimation] this call is seeding for -
+     * implementations should wrap whatever [Action] they build in [selfCancelling] so a superseding
+     * [TileView.playAnimation] call (which overwrites [TileView.playingAnimation] before this one's
+     * own duration elapses) cleans this one up instead of leaving it to run to completion unseen and
+     * blocking a same-kind follow-up via `actor.hasActions()`.
      */
-    fun animateOnce(actor: Actor, elapsedSeconds: Float)
+    fun animateOnce(actor: Actor, elapsedSeconds: Float, tileView: TileView, token: TileView.PlayingAnimation)
+
+    /**
+     * Wraps [action] so it self-removes the moment [tileView]'s live [TileView.playingAnimation]
+     * stops being [token] - i.e. some other [TileView.playAnimation] call superseded this one before
+     * it finished on its own. [onCancelled] restores whatever end-state matters (e.g. an original
+     * color); implementations that discard their own dedicated Actor on any animation change (the
+     * renderer already tears it down) can pass an empty lambda.
+     */
+    fun selfCancelling(tileView: TileView, token: TileView.PlayingAnimation, onCancelled: () -> Unit, action: Action): Action =
+        object : Action() {
+            override fun act(delta: Float): Boolean {
+                if (tileView.playingAnimation !== token) {
+                    onCancelled()
+                    return true // removes this Action from the actor on the next act() pass
+                }
+                return action.act(delta)
+            }
+        }
 }
 
 /**
@@ -48,38 +72,39 @@ object NukeBlast : TileSingleAnimation {
     private const val fadeOutDuration = 1f
     private const val maxScale = 200f
 
-    override fun animateOnce(actor: Actor, elapsedSeconds: Float) {
+    override fun animateOnce(actor: Actor, elapsedSeconds: Float, tileView: TileView, token: TileView.PlayingAnimation) {
         if (actor.hasActions()) return
-        when {
+        val builtAction = when {
             elapsedSeconds < fadeInDuration -> {
                 val progress = elapsedSeconds / fadeInDuration
                 actor.color.a = Interpolation.pow2In.apply(progress)
                 actor.setScale(1f + (maxScale - 1f) * progress)
-                actor.addAction(Actions.sequence(
+                Actions.sequence(
                     Actions.parallel(
                         Actions.fadeIn(fadeInDuration - elapsedSeconds, Interpolation.pow2In),
                         Actions.scaleTo(maxScale, maxScale, fadeInDuration - elapsedSeconds, Interpolation.linear)
                     ),
                     Actions.delay(holdDuration),
                     Actions.fadeOut(fadeOutDuration, Interpolation.pow2Out)
-                ))
+                )
             }
             elapsedSeconds < fadeInDuration + holdDuration -> {
                 actor.color.a = 1f
                 actor.setScale(maxScale)
-                actor.addAction(Actions.sequence(
+                Actions.sequence(
                     Actions.delay(fadeInDuration + holdDuration - elapsedSeconds),
                     Actions.fadeOut(fadeOutDuration, Interpolation.pow2Out)
-                ))
+                )
             }
             else -> {
                 val progress = (elapsedSeconds - fadeInDuration - holdDuration) / fadeOutDuration
                 actor.color.a = (1f - Interpolation.pow2Out.apply(progress)).coerceIn(0f, 1f)
                 actor.setScale(maxScale)
                 val remaining = fadeInDuration + holdDuration + fadeOutDuration - elapsedSeconds
-                if (remaining > 0f) actor.addAction(Actions.fadeOut(remaining, Interpolation.pow2Out))
+                if (remaining > 0f) Actions.fadeOut(remaining, Interpolation.pow2Out) else null
             }
-        }
+        } ?: return
+        actor.addAction(selfCancelling(tileView, token, onCancelled = {}, builtAction))
     }
 }
 
@@ -93,7 +118,7 @@ object SelectionBlink : TileSingleAnimation {
     override val totalDurationSeconds = 1.8f
     private const val halfCycle = 0.3f // hidden for one halfCycle, then shown for the next
 
-    override fun animateOnce(actor: Actor, elapsedSeconds: Float) {
+    override fun animateOnce(actor: Actor, elapsedSeconds: Float, tileView: TileView, token: TileView.PlayingAnimation) {
         if (actor.hasActions()) return
         val cycleIndex = (elapsedSeconds / (halfCycle * 2)).toInt()
         val positionInCycle = elapsedSeconds - cycleIndex * halfCycle * 2
@@ -115,7 +140,8 @@ object SelectionBlink : TileSingleAnimation {
             sequence += Actions.run { actor.isVisible = true }
             sequence += Actions.delay(halfCycle)
         }
-        actor.addAction(Actions.sequence(*sequence.toTypedArray()))
+        val builtAction = Actions.sequence(*sequence.toTypedArray())
+        actor.addAction(selfCancelling(tileView, token, onCancelled = { actor.isVisible = true }, builtAction))
     }
 }
 
@@ -129,13 +155,17 @@ object SelectionBlink : TileSingleAnimation {
 object CombatFlashRed : TileSingleAnimation {
     override val totalDurationSeconds = 0.4f
 
-    override fun animateOnce(actor: Actor, elapsedSeconds: Float) {
+    override fun animateOnce(actor: Actor, elapsedSeconds: Float, tileView: TileView, token: TileView.PlayingAnimation) {
         if (actor.hasActions()) return // already flashing - don't restart mid-tween
         val halfDuration = totalDurationSeconds / 2
         val originalColor = actor.color.cpy()
-        actor.addAction(Actions.sequence(
+        val builtAction = Actions.sequence(
             Actions.color(Color.RED, halfDuration, Interpolation.sine),
             Actions.color(originalColor, halfDuration, Interpolation.sine)
-        ))
+        )
+        // onCancelled restores originalColor immediately: a superseding animation (e.g. another
+        // playCombatFlash before this one finished) would otherwise leave the actor's color mid-tween
+        // forever, since nothing else ever revisits it once playingAnimation moves on.
+        actor.addAction(selfCancelling(tileView, token, onCancelled = { actor.color = originalColor }, builtAction))
     }
 }

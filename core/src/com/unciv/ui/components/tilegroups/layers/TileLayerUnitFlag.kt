@@ -125,8 +125,6 @@ class TileLayerUnitFlag(tileGroup: TileGroup, size: Float) : TileLayer(tileGroup
                 highlightRed()
         }
 
-        // Has to run after fillSlots, which unconditionally recreates both icon slots and would
-        // otherwise lose whatever selectUnit() just set.
         tileGroup.tileView.selectedUnitForFlag?.let { selectFlag(it) }
     }
 

@@ -153,8 +153,7 @@ object BattleTableHelpers {
                 }
             }
 
-        // Unlike the movement/attack-frame-overlay animations below (still raw Actor manipulation),
-        // the red flash goes through TileView.playCombatFlash instead of capturing Actors directly.
+
         fun flashCombatant(combatant: ICombatant) {
             val tileView = selectedGameView.tileMapView.getTile(combatant.getTile())
             if (combatant.isCity()) tileView.playCombatFlash(null)
@@ -180,7 +179,6 @@ object BattleTableHelpers {
                     createDamageLabel(damageToAttacker, attackerGroup)
                     if (!hideDefenderDamage)
                         createDamageLabel(damageToDefender, defenderGroup)
-                    // While the unit is moving back to its normal position, we flash the damages on both units
                     if (damageToDefender != 0) flashCombatant(defender)
                     if (damageToAttacker != 0) flashCombatant(attacker)
                 },

@@ -621,8 +621,7 @@ class WorldMapHolder(
             && viewingCiv.isDefeated()
     }
 
-    /** Clear all arrows to be drawn on the next update. Uses [tilesWithArrows] rather than sweeping
-     *  every live [tileGroupsByTileView] entry. */
+    /** Clear all arrows to be drawn on the next update. */
     fun resetArrows() {
         for (tileView in tilesWithArrows)
             tileGroupsByTileView[tileView]?.layerMisc?.resetArrows()
@@ -706,12 +705,11 @@ class WorldMapHolder(
 
     override fun zoom(zoomScale: Float) {
         super.zoom(zoomScale)
-        onZoomed()
+        clampCityButtonSize()
     }
 
-    /** Called whenever [zoom] changes the current zoom level. We don't want the city buttons
-     *  becoming too large when zooming out. */
-    private fun onZoomed() {
+    /** We don't want the city buttons becoming too large when zooming out */
+    private fun clampCityButtonSize() {
         // use scaleX instead of zoomScale itself, because zoomScale might have been outside minZoom..maxZoom and thus not applied
         val clampedCityButtonZoom = 1 / scaleX
         if (clampedCityButtonZoom >= 1) {
